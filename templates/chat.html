@@ -6,6 +6,17 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <title>{{ receiver_name }}</title>
+
+    <style>
+        #messages::-webkit-scrollbar {
+            width: 0px;
+            height: 0px;
+        }
+
+        #messages {
+            scrollbar-width: none;
+        }
+    </style>
 </head>
 
 <body class="bg-slate-100">
@@ -209,6 +220,16 @@
 
         socket.onmessage = (e) => {
             const data = JSON.parse(e.data);
+
+            if (data.history) {
+                messagesEl.innerHTML = "";
+                (data.messages || []).forEach(m => {
+                    const isMe = (m.user === ME);
+                    addMessage(m, isMe);
+                });
+                setSubStatus(lastBaseStatus);
+                return;
+            }
 
             if (data.presence) {
                 if (Number(data.user_id) === receiverId) {

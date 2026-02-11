@@ -23,6 +23,12 @@ class MessageConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
+        last_messages = await self.get_last_messages()
+        await self.send(text_data=json.dumps({
+            "history": True,
+            "messages": last_messages
+        }))
+
         cache.set(self.online_key(self.me.id), True, timeout=60)
 
         await self.channel_layer.group_send(
