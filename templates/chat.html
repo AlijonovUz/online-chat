@@ -16,6 +16,18 @@
         #messages {
             scrollbar-width: none;
         }
+
+        #emojiGrid::-webkit-scrollbar,
+        #emojiPicker::-webkit-scrollbar {
+            width: 0px;
+            height: 0px;
+        }
+
+        #emojiGrid,
+        #emojiPicker {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
     </style>
 </head>
 
@@ -43,12 +55,6 @@
                    title="Asosiy sahifa">
                     <i data-lucide="home" class="w-5 h-5"></i>
                 </a>
-
-                <button id="clearBtn"
-                        class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700"
-                        title="Tozalash">
-                    <i data-lucide="trash-2" class="w-5 h-5"></i>
-                </button>
 
                 <button id="reconnectBtn"
                         class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 hover:bg-slate-800 text-white"
@@ -135,7 +141,7 @@
 <script>
     lucide.createIcons();
 
-    const ME = "{{ me_name|escapejs }}";
+    const ME_ID = Number("{{ me_id }}");
     const receiverId = Number("{{ receiver_id }}");
 
     const messagesEl = document.getElementById("messages");
@@ -224,7 +230,7 @@
             if (data.history) {
                 messagesEl.innerHTML = "";
                 (data.messages || []).forEach(m => {
-                    const isMe = (m.user === ME);
+                    const isMe = (Number(m.user_id) === ME_ID);
                     addMessage(m, isMe);
                 });
                 setSubStatus(lastBaseStatus);
@@ -248,16 +254,11 @@
             }
 
             if (data.message) {
-                const isMe = (data.user === ME);
+                const isMe = (Number(data.user_id) === ME_ID);
                 addMessage(data, isMe);
             }
         };
     }
-
-    document.getElementById("clearBtn").onclick = () => {
-        messagesEl.innerHTML = "";
-        setSubStatus(lastBaseStatus);
-    };
 
     document.getElementById("reconnectBtn").onclick = () => {
         try {

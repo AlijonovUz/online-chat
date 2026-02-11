@@ -24,6 +24,7 @@ def chat_list(request):
 
     return render(request, "chat_list.html", {
         "me_name": display_name(me),
+        "me_id": request.user.id,
         "users": users,
     })
 
@@ -38,5 +39,9 @@ def private_chat(request, receiver_id: int):
         "receiver_id": receiver_id,
         "receiver_name": receiver_name,
         "receiver_status": receiver_status,
-        "me_name": display_name(request.user),
+        "me_id": request.user.id,
     })
+
+
+def login(request):
+    return render(request, "registration/login.html")

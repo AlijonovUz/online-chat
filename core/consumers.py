@@ -86,8 +86,9 @@ class MessageConsumer(AsyncWebsocketConsumer):
             {
                 "type": "chat_message",
                 "message": msg_obj['message'],
-                "user": msg_obj['user'],
-                "created_at": msg_obj['created_at'],
+                "user": self.display_name(self.me),
+                "user_id": self.me.id,
+                "created_at": msg_obj["created_at"],
             }
         )
 
@@ -133,7 +134,8 @@ class MessageConsumer(AsyncWebsocketConsumer):
         return [
             {
                 "message": m.text,
-                "user": (m.sender.get_full_name() or "").strip() or m.sender.username,
+                "user": self.display_name(m.sender),
+                "user_id": m.sender.id,
                 "created_at": m.created_at.strftime("%H:%M"),
             }
             for m in qs
