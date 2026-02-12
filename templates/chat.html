@@ -8,7 +8,6 @@
     <title>{{ receiver_name }}</title>
 
     <style>
-        /* scroll hide */
         #messages::-webkit-scrollbar,
         #emojiGrid::-webkit-scrollbar,
         #emojiPicker::-webkit-scrollbar {
@@ -21,7 +20,6 @@
             -ms-overflow-style: none;
         }
 
-        /* --- rows --- */
         .msg-row {
             display: flex;
             width: 100%;
@@ -35,7 +33,6 @@
             justify-content: flex-end;
         }
 
-        /* keep bubbles closer */
         .msg-inner {
             width: 100%;
             max-width: 860px;
@@ -43,7 +40,6 @@
             padding: 0 8px;
         }
 
-        /* --- bubbles --- */
         .bubble {
             position: relative;
             width: fit-content;
@@ -88,7 +84,6 @@
             white-space: nowrap;
         }
 
-        /* --- Telegram-like ticks (tight ✓✓) --- */
         .ticks {
             position: relative;
             width: 22px;
@@ -97,7 +92,7 @@
             margin-left: 4px;
             opacity: 0.95;
             transform: translateY(0.5px);
-            color: rgba(255, 255, 255, 0.85); /* default for outgoing */
+            color: rgba(255, 255, 255, 0.85);
         }
 
         .ticks svg {
@@ -112,39 +107,32 @@
             stroke-linejoin: round;
         }
 
-        /* first check */
         .ticks .c1 {
             left: 0;
             opacity: 1;
         }
 
-        /* second check (overlap) */
         .ticks .c2 {
             left: 6px;
             opacity: 0;
         }
 
-        /* unread/sent -> single check only */
         .ticks[data-read="0"] .c2 {
             opacity: 0;
         }
 
-        /* read -> show both checks */
         .ticks[data-read="1"] .c2 {
             opacity: 1;
         }
 
-        /* colors: outgoing read becomes blue */
         .bubble.out .ticks[data-read="1"] {
             color: #60a5fa;
         }
 
-        /* if you ever show ticks for incoming, keep them gray */
         .bubble.in .ticks {
             color: #64748b;
         }
 
-        /* emoji button look */
         .emoji-btn {
             height: 44px;
             width: 44px;
@@ -163,7 +151,6 @@
 <body class="bg-white text-slate-900">
 <div class="min-h-screen flex flex-col">
 
-    <!-- Header (no card) -->
     <header class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200">
         <div class="mx-auto max-w-5xl px-4 sm:px-6 py-3">
             <div class="flex items-center justify-between gap-3">
@@ -180,14 +167,12 @@
 
                 <div class="flex items-center gap-2 shrink-0">
                     <a href="{% url 'chat_list' %}"
-                       class="w-10 h-10 flex items-center justify-center rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 transition"
-                       title="Asosiy sahifa">
+                       class="w-10 h-10 flex items-center justify-center rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 transition">
                         <i data-lucide="home" class="w-5 h-5"></i>
                     </a>
 
                     <button id="reconnectBtn"
-                            class="w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-900 hover:bg-slate-800 text-white transition active:scale-[0.98]"
-                            title="Qayta ulash">
+                            class="w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-900 hover:bg-slate-800 text-white transition active:scale-[0.98]">
                         <i data-lucide="refresh-ccw" class="w-5 h-5"></i>
                     </button>
                 </div>
@@ -195,24 +180,20 @@
         </div>
     </header>
 
-    <!-- Messages area -->
     <main class="flex-1 bg-slate-50">
         <div class="mx-auto max-w-5xl px-4 sm:px-6">
             <div class="msg-inner">
                 <div id="messages"
                      class="h-[calc(100vh-160px)] sm:h-[calc(100vh-168px)] overflow-y-auto py-5 space-y-3">
-                    <!-- messages injected -->
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Composer -->
     <footer class="sticky bottom-0 z-30 bg-white/90 backdrop-blur border-t border-slate-200">
         <div class="mx-auto max-w-5xl px-4 sm:px-6 py-3">
             <form id="form" class="flex items-end gap-2">
 
-                <!-- Emoji -->
                 <div class="relative">
                     <button type="button"
                             id="emojiBtn"
@@ -225,7 +206,6 @@
                     </button>
 
 
-                    <!-- Picker (no search) -->
                     <div id="emojiPicker"
                          class="hidden absolute bottom-14 left-0 w-72 sm:w-80 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
 
@@ -238,7 +218,6 @@
                             </button>
                         </div>
 
-                        <!-- Tabs -->
                         <div class="p-3">
                             <div class="flex gap-2">
                                 <button type="button" data-tab="faces"
@@ -263,7 +242,6 @@
                     </div>
                 </div>
 
-                <!-- Input -->
                 <div class="flex-1">
                     <input id="messageInput" autocomplete="off"
                            class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200
@@ -271,7 +249,6 @@
                            placeholder="Xabar yozing..."/>
                 </div>
 
-                <!-- Send -->
                 <button id="sendBtn"
                         class="h-11 w-11 rounded-2xl bg-slate-900 text-white hover:bg-slate-800
                transition active:scale-[0.98]
@@ -314,13 +291,11 @@
         subStatusEl.textContent = text;
     }
 
-    // Telegram-like ticks as SVG (tight ✓✓)
     function makeTicks(isRead) {
         const wrap = document.createElement("span");
         wrap.className = "ticks";
         wrap.dataset.read = isRead ? "1" : "0";
 
-        // two check icons (overlapped), CSS controls visibility
         wrap.innerHTML = `
     <svg class="c1" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M20 6L9 17l-5-5"></path>
@@ -394,7 +369,7 @@
         };
         socket.onerror = () => {
             sendBtn.disabled = true;
-            setSubStatus("Xatolik");
+            setSubStatus("Ulanmoqda...");
         };
 
         socket.onmessage = (e) => {
@@ -468,7 +443,6 @@
         inputEl.focus();
     });
 
-    // --- Emoji picker (NO SEARCH, 3 tabs only) ---
     const EMOJIS = {
         faces: [
             "😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊", "🙂", "🙃", "😍", "😘", "😗", "😙", "😚", "😋", "😛", "😜", "🤪", "😝",
