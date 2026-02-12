@@ -62,7 +62,6 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
-    "allauth.socialaccount.providers.github",
 ]
 
 MIDDLEWARE = [
@@ -105,7 +104,10 @@ CACHES = {
 # channel layers (dev)
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
     }
 }
 
@@ -143,6 +145,11 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTHENTICATION_BACKENDS = (
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+)
+
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
@@ -169,7 +176,6 @@ LOGIN_URL = "/accounts/login/"
 # https://docs.allauth.org/en/latest/installation/quickstart.html
 
 SOCIALACCOUNT_PROVIDERS = {
-
     "google": {
         "SCOPE": ["profile", "email"],
         "FIELDS": ["email", "name", "first_name", "last_name"],
@@ -178,8 +184,4 @@ SOCIALACCOUNT_PROVIDERS = {
         },
         "OAUTH_PKCE_ENABLED": True,
     },
-
-    "github": {
-        "SCOPE": ["user:email"],
-    }
 }

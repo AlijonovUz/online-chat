@@ -29,7 +29,15 @@ class MessageConsumer(AsyncWebsocketConsumer):
             "messages": last_messages
         }))
 
-        cache.set(self.online_key(self.me.id), True, timeout=60)
+        cache.set(f"active:{self.chat_key}:{self.me.id}", True, timeout=600)
+        cache.set(self.online_key(self.me.id), True, timeout=600)
+
+        max_id = await self.mark_dialog_read(self.me.id, self.receiver_id)
+        if max_id:
+            await self.channel_layer.group_send(
+                self.group_name,
+                {"type": "chat_read", "reader_id": self.me.id, "up_to_id": max_id}
+            )
 
         await self.channel_layer.group_send(
             self.group_name,
@@ -43,6 +51,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, code):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
+        cache.delete(f"active:{self.chat_key}:{self.me.id}")
         cache.delete(self.online_key(self.me.id))
 
         cache.set(
@@ -85,15 +94,35 @@ class MessageConsumer(AsyncWebsocketConsumer):
             self.group_name,
             {
                 "type": "chat_message",
+                "id": msg_obj["id"],
                 "message": msg_obj['message'],
                 "user": self.display_name(self.me),
                 "user_id": self.me.id,
-                "created_at": msg_obj["created_at"],
+                "is_read": msg_obj['is_read'],
+                "created_at": msg_obj['created_at'],
             }
         )
 
+        if cache.get(f"active:{self.chat_key}:{self.receiver_id}"):
+            await self.mark_one_read(msg_obj['id'])
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    "type": "chat_read",
+                    "reader_id": self.receiver_id,
+                    "up_to_id": msg_obj['id']
+                }
+            )
+
     async def chat_message(self, event):
         await self.send(text_data=json.dumps(event))
+
+    async def chat_read(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "chat_read",
+            "reader_id": event['reader_id'],
+            "up_to_id": event['up_to_id']
+        }))
 
     async def typing_event(self, event):
         await self.send(text_data=json.dumps({
@@ -118,9 +147,11 @@ class MessageConsumer(AsyncWebsocketConsumer):
         message = Message.objects.create(sender=sender, receiver=receiver, text=text)
 
         return {
+            "id": message.id,
             "message": message.text,
             "user": self.display_name(message.sender),
-            "created_at": message.created_at.strftime("%H:%M"),
+            "is_read": message.is_read,
+            "created_at": timezone.localtime(message.created_at).strftime("%H:%M"),
         }
 
     @sync_to_async
@@ -133,13 +164,31 @@ class MessageConsumer(AsyncWebsocketConsumer):
 
         return [
             {
+                "id": m.id,
                 "message": m.text,
                 "user": self.display_name(m.sender),
                 "user_id": m.sender.id,
-                "created_at": m.created_at.strftime("%H:%M"),
+                "is_read": m.is_read,
+                "created_at": timezone.localtime(m.created_at).strftime("%H:%M"),
             }
             for m in qs
         ]
+
+    @sync_to_async
+    def mark_one_read(self, msg_id: int):
+        Message.objects.filter(id=msg_id, is_read=False).update(is_read=True)
+
+    @sync_to_async
+    def mark_dialog_read(self, me_id: int, other_id: int):
+        qs = Message.objects.filter(
+            sender_id=other_id,
+            receiver_id=me_id,
+            is_read=False
+        )
+        max_id = qs.order_by("-id").values_list("id", flat=True).first()
+        if max_id:
+            qs.update(is_read=True)
+        return max_id
 
     def display_name(self, user):
         return (user.get_full_name() or "").strip() or user.username

@@ -39,16 +39,27 @@
                 </div>
             </div>
 
-            <form method="post" action="/accounts/logout/">
-                {% csrf_token %}
+            <div class="flex items-center gap-2">
                 <button
-                        type="submit"
+                        type="button"
+                        onclick="location.reload()"
                         class="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center transition active:scale-[0.98]"
-                        title="Chiqish"
+                        title="Yangilash"
                 >
-                    <i data-lucide="log-out" class="w-5 h-5 text-slate-700"></i>
+                    <i data-lucide="refresh-ccw" class="w-5 h-5 text-slate-700"></i>
                 </button>
-            </form>
+
+                <form method="post" action="/accounts/logout/">
+                    {% csrf_token %}
+                    <button
+                            type="submit"
+                            class="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center transition active:scale-[0.98]"
+                            title="Chiqish"
+                    >
+                        <i data-lucide="log-out" class="w-5 h-5 text-slate-700"></i>
+                    </button>
+                </form>
+            </div>
         </div>
 
         <div class="p-4 border-b bg-white">
@@ -62,7 +73,7 @@
                         class="w-full pl-10 pr-11 py-3 rounded-2xl border border-slate-200 bg-white
                  focus:outline-none focus:ring-2 focus:ring-slate-900/20 focus:border-slate-300
                  placeholder:text-slate-400"
-                        placeholder="Ism yoki username bo‘yicha qidirish..."
+                        placeholder="Qidirish..."
                         autocomplete="off"
                 />
 
@@ -125,10 +136,23 @@
                     </div>
                 </div>
 
-                <!-- Arrow -->
-                <div class="shrink-0 text-slate-400 group-hover:text-slate-600 transition">
-                    <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                <!-- Right side (unread + arrow) -->
+                <div class="shrink-0 flex items-center gap-3">
+                    {% if u.unread %}
+                    <span
+                            class="min-w-[22px] h-[22px] px-2 rounded-full bg-slate-900 text-white text-xs font-semibold
+                   inline-flex items-center justify-center"
+                            title="O‘qilmagan xabarlar"
+                    >
+            {{ u.unread }}
+        </span>
+                    {% endif %}
+
+                    <div class="text-slate-400 group-hover:text-slate-600 transition">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </div>
                 </div>
+
             </a>
             {% empty %}
             <div class="p-10 text-center">

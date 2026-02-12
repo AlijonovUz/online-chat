@@ -8,25 +8,86 @@
     <title>{{ receiver_name }}</title>
 
     <style>
-        #messages::-webkit-scrollbar {
-            width: 0px;
-            height: 0px;
-        }
-
-        #messages {
-            scrollbar-width: none;
-        }
-
+        /* scroll hide */
+        #messages::-webkit-scrollbar,
         #emojiGrid::-webkit-scrollbar,
         #emojiPicker::-webkit-scrollbar {
-            width: 0px;
-            height: 0px;
+            width: 0;
+            height: 0;
         }
 
-        #emojiGrid,
-        #emojiPicker {
+        #messages, #emojiGrid, #emojiPicker {
             scrollbar-width: none;
             -ms-overflow-style: none;
+        }
+
+        /* --- Telegram-ish bubbles --- */
+        .msg-row {
+            display: flex;
+            width: 100%;
+        }
+
+        .msg-row.in {
+            justify-content: flex-start;
+        }
+
+        .msg-row.out {
+            justify-content: flex-end;
+        }
+
+        .bubble {
+            position: relative;
+            width: fit-content;
+            max-width: 78%;
+            padding: 10px 14px 22px 14px;
+            border-radius: 22px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+        }
+
+        .bubble.in {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            color: #0f172a;
+            border-bottom-left-radius: 10px;
+        }
+
+        .bubble.out {
+            background: #0f172a;
+            color: #ffffff;
+            border-bottom-right-radius: 10px;
+        }
+
+        .bubble-text {
+            font-size: 14px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: normal;
+            overflow-wrap: anywhere;
+            padding-right: 56px;
+        }
+
+        .bubble-meta {
+            position: absolute;
+            right: 10px;
+            bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            opacity: .75;
+            user-select: none;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .ticks {
+            font-size: 12px;
+            opacity: .9;
+        }
+
+        .ticks[data-read="1"] {
+            color: #60a5fa;
+            opacity: 1;
         }
     </style>
 </head>
@@ -49,7 +110,6 @@
             </div>
 
             <div class="flex items-center gap-2">
-
                 <a href="{% url 'chat_list' %}"
                    class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700"
                    title="Asosiy sahifa">
@@ -61,7 +121,6 @@
                         title="Qayta ulash">
                     <i data-lucide="refresh-ccw" class="w-5 h-5"></i>
                 </button>
-
             </div>
         </div>
 
@@ -84,18 +143,16 @@
 
                         <div class="flex items-center justify-between gap-2 mb-2">
                             <div class="text-xs text-slate-500">Emoji tanlang</div>
-                            <button id="emojiCloseBtn" type="button"
-                                    class="p-1 rounded-lg hover:bg-slate-100" title="Yopish">
+                            <button id="emojiCloseBtn" type="button" class="p-1 rounded-lg hover:bg-slate-100"
+                                    title="Yopish">
                                 <i data-lucide="x" class="w-4 h-4 text-slate-600"></i>
                             </button>
                         </div>
 
-                        <!-- Search -->
                         <input id="emojiSearch" type="text" autocomplete="off"
                                class="w-full mb-3 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm"
                                placeholder="Qidirish"/>
 
-                        <!-- Tabs -->
                         <div class="flex gap-2 mb-3">
                             <button type="button" data-tab="faces"
                                     class="emojiTab flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-slate-900 text-white">
@@ -111,11 +168,9 @@
                             </button>
                         </div>
 
-                        <!-- Grid -->
                         <div id="emojiGrid" class="grid grid-cols-8 gap-2 text-xl max-h-64 overflow-y-auto pr-1"></div>
 
-                        <div id="emojiEmpty"
-                             class="hidden text-sm text-slate-500 mt-3 text-center">
+                        <div id="emojiEmpty" class="hidden text-sm text-slate-500 mt-3 text-center">
                             Hech narsa topilmadi 😅
                         </div>
                     </div>
@@ -149,6 +204,7 @@
     const inputEl = document.getElementById("messageInput");
     const formEl = document.getElementById("form");
     const sendBtn = document.getElementById("sendBtn");
+    const reconnectBtn = document.getElementById("reconnectBtn");
 
     const emojiBtn = document.getElementById("emojiBtn");
     const emojiPicker = document.getElementById("emojiPicker");
@@ -176,26 +232,55 @@
         subStatusEl.textContent = text;
     }
 
-    function addMessage({user, message, created_at}, isMe = false) {
-        const wrap = document.createElement("div");
-        wrap.className = "flex " + (isMe ? "justify-end" : "justify-start");
+    function addMessage({id, message, created_at, user_id, is_read}, isMe = false) {
+        const row = document.createElement("div");
+        row.className = "msg-row " + (isMe ? "out" : "in");
 
         const bubble = document.createElement("div");
-        bubble.className =
-            "max-w-[78%] rounded-2xl px-4 py-3 shadow-sm " +
-            (isMe ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-900");
+        bubble.className = "bubble " + (isMe ? "out" : "in");
+        if (id !== undefined && id !== null) bubble.dataset.id = String(id);
 
-        bubble.innerHTML = `
-      <div class="text-[11px] opacity-70 mb-1 flex items-center justify-between gap-3">
-        <span>${escapeHtml(user || "anon")}</span>
-        <span>${escapeHtml(created_at || "")}</span>
-      </div>
-      <div class="whitespace-pre-wrap break-words text-sm leading-relaxed">${escapeHtml(message || "")}</div>
-    `;
+        const text = document.createElement("div");
+        text.className = "bubble-text";
+        text.textContent = message || "";
 
-        wrap.appendChild(bubble);
-        messagesEl.appendChild(wrap);
+        const meta = document.createElement("div");
+        meta.className = "bubble-meta";
+
+        const timeEl = document.createElement("span");
+        timeEl.textContent = created_at || "";
+        meta.appendChild(timeEl);
+
+        if (isMe) {
+            const ticks = document.createElement("span");
+            ticks.className = "ticks";
+            const read = !!is_read;
+            ticks.dataset.read = read ? "1" : "0";
+            ticks.textContent = read ? "✓✓" : "✓";
+            meta.appendChild(ticks);
+        }
+
+        bubble.appendChild(text);
+        bubble.appendChild(meta);
+        row.appendChild(bubble);
+        messagesEl.appendChild(row);
         messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function setTicksReadUpTo(upToId) {
+        const upTo = Number(upToId || 0);
+        if (!upTo) return;
+
+        document.querySelectorAll(".bubble.out").forEach(b => {
+            const mid = Number(b.dataset.id || 0);
+            if (mid && mid <= upTo) {
+                const t = b.querySelector(".ticks");
+                if (t) {
+                    t.textContent = "✓✓";
+                    t.dataset.read = "1";
+                }
+            }
+        });
     }
 
     function connectWs() {
@@ -247,9 +332,15 @@
 
             if (data.typing) {
                 if (Number(data.user_id) !== receiverId) return;
-                setSubStatus(`yozmoqda...`);
+                setSubStatus("yozmoqda...");
                 clearTimeout(typingTimer);
                 typingTimer = setTimeout(() => setSubStatus(lastBaseStatus), 1000);
+                return;
+            }
+
+            if (data.type === "chat_read") {
+                if (Number(data.reader_id) !== receiverId) return;
+                setTicksReadUpTo(data.up_to_id);
                 return;
             }
 
@@ -260,7 +351,7 @@
         };
     }
 
-    document.getElementById("reconnectBtn").onclick = () => {
+    reconnectBtn.onclick = () => {
         try {
             socket && socket.close();
         } catch {
@@ -295,202 +386,206 @@
         inputEl.focus();
     });
 
+    // --- Emoji picker ---
     const EMOJIS = {
         faces: [
-            {e: "😀", k: ["grinning", "smile", "face"]},
-            {e: "😁", k: ["grin", "happy", "face"]},
-            {e: "😂", k: ["joy", "laugh", "lol", "face"]},
-            {e: "🤣", k: ["rofl", "laugh", "face"]},
-            {e: "😃", k: ["smiley", "happy", "face"]},
-            {e: "😄", k: ["smile", "happy", "face"]},
-            {e: "😅", k: ["sweat_smile", "nervous", "face"]},
-            {e: "😆", k: ["laugh", "face"]},
-            {e: "😉", k: ["wink", "face"]},
-            {e: "😊", k: ["blush", "smile", "face"]},
-            {e: "🙂", k: ["slight_smile", "face"]},
-            {e: "🙃", k: ["upside_down", "face"]},
-            {e: "😍", k: ["heart_eyes", "love", "face"]},
-            {e: "😘", k: ["kiss", "face"]},
-            {e: "😗", k: ["kiss", "face"]},
-            {e: "😙", k: ["kiss", "face"]},
-            {e: "😚", k: ["kiss", "face"]},
-            {e: "😋", k: ["yummy", "tongue", "face"]},
-            {e: "😛", k: ["tongue", "face"]},
-            {e: "😜", k: ["wink", "tongue", "face"]},
-            {e: "🤪", k: ["crazy", "face"]},
-            {e: "😝", k: ["tongue", "face"]},
-            {e: "🤑", k: ["money", "face"]},
-            {e: "🤗", k: ["hug", "face"]},
-            {e: "🤭", k: ["oops", "giggle", "face"]},
-            {e: "🤫", k: ["shush", "face"]},
-            {e: "🤔", k: ["think", "face"]},
-            {e: "😐", k: ["neutral", "face"]},
-            {e: "😑", k: ["expressionless", "face"]},
-            {e: "😶", k: ["no_mouth", "face"]},
-            {e: "🙄", k: ["rolling_eyes", "face"]},
-            {e: "😏", k: ["smirk", "face"]},
-            {e: "😌", k: ["relieved", "face"]},
-            {e: "😔", k: ["sad", "face"]},
-            {e: "😪", k: ["sleepy", "face"]},
-            {e: "🤤", k: ["drool", "face"]},
-            {e: "😴", k: ["sleep", "face"]},
-            {e: "😷", k: ["mask", "sick", "face"]},
-            {e: "🤒", k: ["fever", "sick", "face"]},
-            {e: "🤕", k: ["injured", "face"]},
-            {e: "🤢", k: ["nauseated", "sick", "face"]},
-            {e: "🤮", k: ["vomit", "sick", "face"]},
-            {e: "🤧", k: ["sneeze", "sick", "face"]},
-            {e: "🥵", k: ["hot", "face"]},
-            {e: "🥶", k: ["cold", "face"]},
-            {e: "😵", k: ["dizzy", "face"]},
-            {e: "🤯", k: ["mind_blown", "face"]},
-            {e: "😎", k: ["cool", "sunglasses", "face"]},
-            {e: "🤓", k: ["nerd", "face"]},
-            {e: "🧐", k: ["monocle", "face"]},
-            {e: "😕", k: ["confused", "face"]},
-            {e: "😟", k: ["worried", "face"]},
-            {e: "🙁", k: ["slight_frown", "face"]},
-            {e: "☹️", k: ["frown", "sad", "face"]},
-            {e: "😮", k: ["open_mouth", "face"]},
-            {e: "😯", k: ["hushed", "face"]},
-            {e: "😲", k: ["astonished", "face"]},
-            {e: "😳", k: ["flushed", "face"]},
-            {e: "🥺", k: ["pleading", "face"]},
-            {e: "😦", k: ["frown", "face"]},
-            {e: "😧", k: ["anguished", "face"]},
-            {e: "😨", k: ["fear", "face"]},
-            {e: "😰", k: ["cold_sweat", "face"]},
-            {e: "😥", k: ["sad", "face"]},
-            {e: "😢", k: ["cry", "sad", "face"]},
-            {e: "😭", k: ["sob", "cry", "sad", "face"]},
-            {e: "😱", k: ["scream", "fear", "face"]},
-            {e: "😖", k: ["confounded", "face"]},
-            {e: "😣", k: ["persevere", "face"]},
-            {e: "😞", k: ["disappointed", "sad", "face"]},
-            {e: "😓", k: ["sweat", "face"]},
-            {e: "😩", k: ["weary", "face"]},
-            {e: "😫", k: ["tired", "face"]},
-            {e: "😤", k: ["triumph", "angry", "face"]},
-            {e: "😡", k: ["rage", "angry", "face"]},
-            {e: "😠", k: ["angry", "face"]},
-            {e: "🤬", k: ["swearing", "angry", "face"]},
-            {e: "😈", k: ["smiling_imp", "devil", "face"]},
-            {e: "👿", k: ["imp", "devil", "face"]},
-            {e: "💀", k: ["skull", "dead"]},
-            {e: "☠️", k: ["skull", "bones", "dead"]}
+            {e: "😀", k: ["grinning", "smile", "face"]}, {e: "😁", k: ["grin", "happy", "face"]}, {
+                e: "😂",
+                k: ["joy", "laugh", "lol", "face"]
+            },
+            {e: "🤣", k: ["rofl", "laugh", "face"]}, {e: "😃", k: ["smiley", "happy", "face"]}, {
+                e: "😄",
+                k: ["smile", "happy", "face"]
+            },
+            {e: "😅", k: ["sweat_smile", "nervous", "face"]}, {e: "😆", k: ["laugh", "face"]}, {
+                e: "😉",
+                k: ["wink", "face"]
+            },
+            {e: "😊", k: ["blush", "smile", "face"]}, {e: "🙂", k: ["slight_smile", "face"]}, {
+                e: "🙃",
+                k: ["upside_down", "face"]
+            },
+            {e: "😍", k: ["heart_eyes", "love", "face"]}, {e: "😘", k: ["kiss", "face"]}, {
+                e: "😗",
+                k: ["kiss", "face"]
+            },
+            {e: "😙", k: ["kiss", "face"]}, {e: "😚", k: ["kiss", "face"]}, {e: "😋", k: ["yummy", "tongue", "face"]},
+            {e: "😛", k: ["tongue", "face"]}, {e: "😜", k: ["wink", "tongue", "face"]}, {
+                e: "🤪",
+                k: ["crazy", "face"]
+            },
+            {e: "😝", k: ["tongue", "face"]}, {e: "🤑", k: ["money", "face"]}, {e: "🤗", k: ["hug", "face"]},
+            {e: "🤭", k: ["oops", "giggle", "face"]}, {e: "🤫", k: ["shush", "face"]}, {e: "🤔", k: ["think", "face"]},
+            {e: "😐", k: ["neutral", "face"]}, {e: "😑", k: ["expressionless", "face"]}, {
+                e: "😶",
+                k: ["no_mouth", "face"]
+            },
+            {e: "🙄", k: ["rolling_eyes", "face"]}, {e: "😏", k: ["smirk", "face"]}, {
+                e: "😌",
+                k: ["relieved", "face"]
+            },
+            {e: "😔", k: ["sad", "face"]}, {e: "😪", k: ["sleepy", "face"]}, {e: "🤤", k: ["drool", "face"]},
+            {e: "😴", k: ["sleep", "face"]}, {e: "😷", k: ["mask", "sick", "face"]}, {
+                e: "🤒",
+                k: ["fever", "sick", "face"]
+            },
+            {e: "🤕", k: ["injured", "face"]}, {e: "🤢", k: ["nauseated", "sick", "face"]}, {
+                e: "🤮",
+                k: ["vomit", "sick", "face"]
+            },
+            {e: "🤧", k: ["sneeze", "sick", "face"]}, {e: "🥵", k: ["hot", "face"]}, {e: "🥶", k: ["cold", "face"]},
+            {e: "😵", k: ["dizzy", "face"]}, {e: "🤯", k: ["mind_blown", "face"]}, {
+                e: "😎",
+                k: ["cool", "sunglasses", "face"]
+            },
+            {e: "🤓", k: ["nerd", "face"]}, {e: "🧐", k: ["monocle", "face"]}, {e: "😕", k: ["confused", "face"]},
+            {e: "😟", k: ["worried", "face"]}, {e: "🙁", k: ["slight_frown", "face"]}, {
+                e: "☹️",
+                k: ["frown", "sad", "face"]
+            },
+            {e: "😮", k: ["open_mouth", "face"]}, {e: "😯", k: ["hushed", "face"]}, {
+                e: "😲",
+                k: ["astonished", "face"]
+            },
+            {e: "😳", k: ["flushed", "face"]}, {e: "🥺", k: ["pleading", "face"]}, {e: "😦", k: ["frown", "face"]},
+            {e: "😧", k: ["anguished", "face"]}, {e: "😨", k: ["fear", "face"]}, {e: "😰", k: ["cold_sweat", "face"]},
+            {e: "😥", k: ["sad", "face"]}, {e: "😢", k: ["cry", "sad", "face"]}, {
+                e: "😭",
+                k: ["sob", "cry", "sad", "face"]
+            },
+            {e: "😱", k: ["scream", "fear", "face"]}, {e: "😖", k: ["confounded", "face"]}, {
+                e: "😣",
+                k: ["persevere", "face"]
+            },
+            {e: "😞", k: ["disappointed", "sad", "face"]}, {e: "😓", k: ["sweat", "face"]}, {
+                e: "😩",
+                k: ["weary", "face"]
+            },
+            {e: "😫", k: ["tired", "face"]}, {e: "😤", k: ["triumph", "angry", "face"]}, {
+                e: "😡",
+                k: ["rage", "angry", "face"]
+            },
+            {e: "😠", k: ["angry", "face"]}, {e: "🤬", k: ["swearing", "angry", "face"]}, {
+                e: "😈",
+                k: ["smiling_imp", "devil", "face"]
+            },
+            {e: "👿", k: ["imp", "devil", "face"]}, {e: "💀", k: ["skull", "dead"]}, {
+                e: "☠️",
+                k: ["skull", "bones", "dead"]
+            }
         ],
-
         hearts: [
-            {e: "❤️", k: ["heart", "love", "red"]},
-            {e: "🧡", k: ["heart", "love", "orange"]},
-            {e: "💛", k: ["heart", "love", "yellow"]},
-            {e: "💚", k: ["heart", "love", "green"]},
-            {e: "💙", k: ["heart", "love", "blue"]},
-            {e: "💜", k: ["heart", "love", "purple"]},
-            {e: "🖤", k: ["heart", "love", "black"]},
-            {e: "🤍", k: ["heart", "love", "white"]},
-            {e: "🤎", k: ["heart", "love", "brown"]},
-            {e: "💔", k: ["broken", "heart", "sad"]},
-            {e: "❣️", k: ["heart", "exclamation", "love"]},
-            {e: "💕", k: ["two_hearts", "love"]},
-            {e: "💞", k: ["revolving", "hearts", "love"]},
-            {e: "💓", k: ["beating", "heart", "love"]},
-            {e: "💗", k: ["growing", "heart", "love"]},
-            {e: "💖", k: ["sparkling", "heart", "love"]},
-            {e: "💘", k: ["heart", "arrow", "love"]},
-            {e: "💝", k: ["heart", "gift", "love"]},
-            {e: "💟", k: ["heart", "decoration", "love"]},
-            {e: "❤️‍🔥", k: ["heart", "fire", "love"]},
-            {e: "❤️‍🩹", k: ["mending", "heart", "heal", "love"]},
-            {e: "💌", k: ["love", "letter", "heart"]},
-            {e: "💋", k: ["kiss", "love"]},
-            {e: "🫶", k: ["hands", "heart", "love"]},
+            {e: "❤️", k: ["heart", "love", "red"]}, {e: "🧡", k: ["heart", "love", "orange"]}, {
+                e: "💛",
+                k: ["heart", "love", "yellow"]
+            },
+            {e: "💚", k: ["heart", "love", "green"]}, {e: "💙", k: ["heart", "love", "blue"]}, {
+                e: "💜",
+                k: ["heart", "love", "purple"]
+            },
+            {e: "🖤", k: ["heart", "love", "black"]}, {e: "🤍", k: ["heart", "love", "white"]}, {
+                e: "🤎",
+                k: ["heart", "love", "brown"]
+            },
+            {e: "💔", k: ["broken", "heart", "sad"]}, {e: "❣️", k: ["heart", "exclamation", "love"]}, {
+                e: "💕",
+                k: ["two_hearts", "love"]
+            },
+            {e: "💞", k: ["revolving", "hearts", "love"]}, {e: "💓", k: ["beating", "heart", "love"]}, {
+                e: "💗",
+                k: ["growing", "heart", "love"]
+            },
+            {e: "💖", k: ["sparkling", "heart", "love"]}, {e: "💘", k: ["heart", "arrow", "love"]}, {
+                e: "💝",
+                k: ["heart", "gift", "love"]
+            },
+            {e: "💟", k: ["heart", "decoration", "love"]}, {e: "❤️‍🔥", k: ["heart", "fire", "love"]}, {
+                e: "❤️‍🩹",
+                k: ["mending", "heart", "heal", "love"]
+            },
+            {e: "💌", k: ["love", "letter", "heart"]}, {e: "💋", k: ["kiss", "love"]}, {
+                e: "🫶",
+                k: ["hands", "heart", "love"]
+            },
             {e: "💍", k: ["ring", "love", "marriage"]}
         ],
-
         others: [
-            // gestures / people
-            {e: "👋", k: ["wave", "hello"]},
-            {e: "🤚", k: ["hand", "stop"]},
-            {e: "✋", k: ["hand", "stop"]},
-            {e: "🖐️", k: ["hand", "high_five"]},
-            {e: "🖖", k: ["vulcan", "spock"]},
-            {e: "👌", k: ["ok", "hand"]},
-            {e: "🤌", k: ["italian", "hand"]},
-            {e: "🤏", k: ["pinch", "small"]},
-            {e: "✌️", k: ["victory", "peace"]},
-            {e: "🤞", k: ["fingers_crossed", "luck"]},
-            {e: "🤟", k: ["love_you", "hand"]},
-            {e: "🤘", k: ["rock", "hand"]},
-            {e: "🤙", k: ["call_me", "hand"]},
-            {e: "👍", k: ["thumbs_up", "like"]},
-            {e: "👎", k: ["thumbs_down", "dislike"]},
-            {e: "👊", k: ["fist", "punch"]},
-            {e: "✊", k: ["raised_fist"]},
-            {e: "🤛", k: ["left_fist"]},
-            {e: "🤜", k: ["right_fist"]},
-            {e: "👏", k: ["clap", "applause"]},
-            {e: "🙌", k: ["hooray", "praise"]},
-            {e: "👐", k: ["open_hands"]},
-            {e: "🤲", k: ["palms_up"]},
-            {e: "🙏", k: ["pray", "thanks"]},
-            {e: "💪", k: ["muscle", "strong"]},
-            {e: "🦾", k: ["bionic", "arm"]},
-            {e: "🧠", k: ["brain", "think"]},
-            {e: "💡", k: ["idea", "light"]},
-
-            // symbols / fun
-            {e: "💯", k: ["100", "perfect"]},
-            {e: "✨", k: ["sparkles", "shine"]},
-            {e: "🔥", k: ["fire", "hot"]},
-            {e: "⭐", k: ["star"]},
-            {e: "🌟", k: ["glowing", "star"]},
-            {e: "🎉", k: ["party", "tada"]},
-            {e: "🎊", k: ["confetti", "party"]},
-            {e: "🥳", k: ["party", "celebrate"]},
-            {e: "🎂", k: ["cake", "birthday"]},
-            {e: "🍰", k: ["cake", "dessert"]},
-            {e: "🍕", k: ["pizza", "food"]},
-            {e: "🍔", k: ["burger", "food"]},
-            {e: "🍟", k: ["fries", "food"]},
-            {e: "🌭", k: ["hotdog", "food"]},
-            {e: "🍿", k: ["popcorn", "movie"]},
-            {e: "🍩", k: ["donut", "dessert"]},
-            {e: "🍪", k: ["cookie", "dessert"]},
-            {e: "☕", k: ["coffee", "drink"]},
-            {e: "🍵", k: ["tea", "drink"]},
-            {e: "🧃", k: ["juice", "drink"]},
-            {e: "🥤", k: ["soda", "drink"]},
-            {e: "🍎", k: ["apple", "fruit"]},
-            {e: "🍌", k: ["banana", "fruit"]},
-            {e: "🍓", k: ["strawberry", "fruit"]},
-            {e: "🍉", k: ["watermelon", "fruit"]},
-            {e: "🍇", k: ["grapes", "fruit"]},
-
-            // tech / objects
-            {e: "📱", k: ["phone", "mobile"]},
-            {e: "💻", k: ["laptop", "computer"]},
-            {e: "⌚", k: ["watch", "time"]},
-            {e: "📷", k: ["camera"]},
-            {e: "📸", k: ["camera", "flash"]},
-            {e: "📌", k: ["pin"]},
-            {e: "📎", k: ["paperclip"]},
-            {e: "🕒", k: ["clock", "time"]},
-            {e: "⌛", k: ["hourglass", "time"]},
-            {e: "⏳", k: ["hourglass", "time"]},
-
-            // travel / sports
-            {e: "🚀", k: ["rocket"]},
-            {e: "✈️", k: ["airplane", "travel"]},
-            {e: "🚗", k: ["car", "travel"]},
-            {e: "🏠", k: ["home", "house"]},
-            {e: "⚽", k: ["football", "soccer"]},
-            {e: "🏀", k: ["basketball"]},
-            {e: "🏈", k: ["american_football"]},
-            {e: "⚾", k: ["baseball"]},
-            {e: "🎾", k: ["tennis"]},
-            {e: "🏐", k: ["volleyball"]},
-            {e: "🎮", k: ["game", "controller"]},
+            {e: "👋", k: ["wave", "hello"]}, {e: "🤚", k: ["hand", "stop"]}, {e: "✋", k: ["hand", "stop"]}, {
+                e: "🖐️",
+                k: ["hand", "high_five"]
+            },
+            {e: "🖖", k: ["vulcan", "spock"]}, {e: "👌", k: ["ok", "hand"]}, {e: "🤌", k: ["italian", "hand"]}, {
+                e: "🤏",
+                k: ["pinch", "small"]
+            },
+            {e: "✌️", k: ["victory", "peace"]}, {e: "🤞", k: ["fingers_crossed", "luck"]}, {
+                e: "🤟",
+                k: ["love_you", "hand"]
+            },
+            {e: "🤘", k: ["rock", "hand"]}, {e: "🤙", k: ["call_me", "hand"]}, {
+                e: "👍",
+                k: ["thumbs_up", "like"]
+            }, {e: "👎", k: ["thumbs_down", "dislike"]},
+            {e: "👊", k: ["fist", "punch"]}, {e: "✊", k: ["raised_fist"]}, {e: "🤛", k: ["left_fist"]}, {
+                e: "🤜",
+                k: ["right_fist"]
+            },
+            {e: "👏", k: ["clap", "applause"]}, {e: "🙌", k: ["hooray", "praise"]}, {e: "👐", k: ["open_hands"]}, {
+                e: "🤲",
+                k: ["palms_up"]
+            },
+            {e: "🙏", k: ["pray", "thanks"]}, {e: "💪", k: ["muscle", "strong"]}, {e: "🦾", k: ["bionic", "arm"]}, {
+                e: "🧠",
+                k: ["brain", "think"]
+            },
+            {e: "💡", k: ["idea", "light"]}, {e: "💯", k: ["100", "perfect"]}, {
+                e: "✨",
+                k: ["sparkles", "shine"]
+            }, {e: "🔥", k: ["fire", "hot"]},
+            {e: "⭐", k: ["star"]}, {e: "🌟", k: ["glowing", "star"]}, {e: "🎉", k: ["party", "tada"]}, {
+                e: "🎊",
+                k: ["confetti", "party"]
+            },
+            {e: "🥳", k: ["party", "celebrate"]}, {e: "🎂", k: ["cake", "birthday"]}, {
+                e: "🍰",
+                k: ["cake", "dessert"]
+            }, {e: "🍕", k: ["pizza", "food"]},
+            {e: "🍔", k: ["burger", "food"]}, {e: "🍟", k: ["fries", "food"]}, {e: "🌭", k: ["hotdog", "food"]}, {
+                e: "🍿",
+                k: ["popcorn", "movie"]
+            },
+            {e: "🍩", k: ["donut", "dessert"]}, {e: "🍪", k: ["cookie", "dessert"]}, {
+                e: "☕",
+                k: ["coffee", "drink"]
+            }, {e: "🍵", k: ["tea", "drink"]},
+            {e: "🧃", k: ["juice", "drink"]}, {e: "🥤", k: ["soda", "drink"]}, {e: "🍎", k: ["apple", "fruit"]}, {
+                e: "🍌",
+                k: ["banana", "fruit"]
+            },
+            {e: "🍓", k: ["strawberry", "fruit"]}, {e: "🍉", k: ["watermelon", "fruit"]}, {
+                e: "🍇",
+                k: ["grapes", "fruit"]
+            }, {e: "📱", k: ["phone", "mobile"]},
+            {e: "💻", k: ["laptop", "computer"]}, {e: "⌚", k: ["watch", "time"]}, {e: "📷", k: ["camera"]}, {
+                e: "📸",
+                k: ["camera", "flash"]
+            },
+            {e: "📌", k: ["pin"]}, {e: "📎", k: ["paperclip"]}, {e: "🕒", k: ["clock", "time"]}, {
+                e: "⌛",
+                k: ["hourglass", "time"]
+            },
+            {e: "⏳", k: ["hourglass", "time"]}, {e: "🚀", k: ["rocket"]}, {e: "✈️", k: ["airplane", "travel"]}, {
+                e: "🚗",
+                k: ["car", "travel"]
+            },
+            {e: "🏠", k: ["home", "house"]}, {e: "⚽", k: ["football", "soccer"]}, {e: "🏀", k: ["basketball"]}, {
+                e: "🏈",
+                k: ["american_football"]
+            },
+            {e: "⚾", k: ["baseball"]}, {e: "🎾", k: ["tennis"]}, {e: "🏐", k: ["volleyball"]}, {
+                e: "🎮",
+                k: ["game", "controller"]
+            },
             {e: "🎧", k: ["headphones", "music"]}
         ]
     };
@@ -520,7 +615,6 @@
         emojiGrid.innerHTML = "";
 
         const items = (EMOJIS[activeTab] || []).filter(it => matchesSearch(it, q));
-
         if (items.length === 0) {
             emojiEmpty.classList.remove("hidden");
             return;
@@ -556,21 +650,14 @@
     };
 
     emojiCloseBtn.onclick = closeEmojiPicker;
-
-    emojiTabs.forEach(btn => {
-        btn.addEventListener("click", () => setActiveTab(btn.dataset.tab));
-    });
-
+    emojiTabs.forEach(btn => btn.addEventListener("click", () => setActiveTab(btn.dataset.tab)));
     emojiSearch.addEventListener("input", renderEmojis);
 
     document.addEventListener("click", (e) => {
-        if (!emojiBtn.contains(e.target) && !emojiPicker.contains(e.target)) {
-            closeEmojiPicker();
-        }
+        if (!emojiBtn.contains(e.target) && !emojiPicker.contains(e.target)) closeEmojiPicker();
     });
 
     connectWs();
-    renderEmojis();
 </script>
 </body>
 </html>
