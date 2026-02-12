@@ -21,7 +21,7 @@
             -ms-overflow-style: none;
         }
 
-        /* --- Telegram-ish bubbles --- */
+        /* --- rows --- */
         .msg-row {
             display: flex;
             width: 100%;
@@ -35,35 +35,43 @@
             justify-content: flex-end;
         }
 
+        /* keep bubbles closer */
+        .msg-inner {
+            width: 100%;
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 0 8px;
+        }
+
+        /* --- bubbles --- */
         .bubble {
             position: relative;
             width: fit-content;
-            max-width: 78%;
+            max-width: min(78%, 62ch);
             padding: 10px 14px 22px 14px;
-            border-radius: 22px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+            border-radius: 20px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
         }
 
         .bubble.in {
             background: #ffffff;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #e5e7eb;
             color: #0f172a;
-            border-bottom-left-radius: 10px;
+            border-bottom-left-radius: 12px;
         }
 
         .bubble.out {
-            background: #0f172a;
+            background: linear-gradient(180deg, #0f172a, #0b1220);
             color: #ffffff;
-            border-bottom-right-radius: 10px;
+            border-bottom-right-radius: 12px;
         }
 
         .bubble-text {
             font-size: 14px;
             line-height: 1.45;
             white-space: pre-wrap;
-            word-break: normal;
             overflow-wrap: anywhere;
-            padding-right: 56px;
+            padding-right: 62px;
         }
 
         .bubble-meta {
@@ -74,123 +82,208 @@
             align-items: center;
             gap: 6px;
             font-size: 11px;
-            opacity: .75;
+            opacity: 0.75;
             user-select: none;
             line-height: 1;
             white-space: nowrap;
         }
 
+        /* --- Telegram-like ticks (tight ✓✓) --- */
         .ticks {
-            font-size: 12px;
-            opacity: .9;
+            position: relative;
+            width: 22px;
+            height: 14px;
+            display: inline-block;
+            margin-left: 4px;
+            opacity: 0.95;
+            transform: translateY(0.5px);
+            color: rgba(255, 255, 255, 0.85); /* default for outgoing */
         }
 
-        .ticks[data-read="1"] {
-            color: #60a5fa;
+        .ticks svg {
+            position: absolute;
+            top: 0;
+            width: 14px;
+            height: 14px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2.3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* first check */
+        .ticks .c1 {
+            left: 0;
             opacity: 1;
+        }
+
+        /* second check (overlap) */
+        .ticks .c2 {
+            left: 6px;
+            opacity: 0;
+        }
+
+        /* unread/sent -> single check only */
+        .ticks[data-read="0"] .c2 {
+            opacity: 0;
+        }
+
+        /* read -> show both checks */
+        .ticks[data-read="1"] .c2 {
+            opacity: 1;
+        }
+
+        /* colors: outgoing read becomes blue */
+        .bubble.out .ticks[data-read="1"] {
+            color: #60a5fa;
+        }
+
+        /* if you ever show ticks for incoming, keep them gray */
+        .bubble.in .ticks {
+            color: #64748b;
+        }
+
+        /* emoji button look */
+        .emoji-btn {
+            height: 44px;
+            width: 44px;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            transition: 0.15s;
+        }
+
+        .emoji-btn:hover {
+            background: #f8fafc;
         }
     </style>
 </head>
 
-<body class="bg-slate-100">
-<div class="min-h-screen flex items-center justify-center p-4">
-    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-xl overflow-hidden">
+<body class="bg-white text-slate-900">
+<div class="min-h-screen flex flex-col">
 
-        <!-- Header -->
-        <div class="px-5 py-4 border-b flex items-center justify-between bg-white">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center">
-                    <i data-lucide="user" class="w-5 h-5 text-slate-700"></i>
+    <!-- Header (no card) -->
+    <header class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200">
+        <div class="mx-auto max-w-5xl px-4 sm:px-6 py-3">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                        <i data-lucide="user" class="w-5 h-5 text-slate-700"></i>
+                    </div>
+
+                    <div class="min-w-0">
+                        <h1 class="text-base sm:text-lg font-semibold text-slate-900 truncate">{{ receiver_name }}</h1>
+                        <div id="subStatus" class="text-xs text-slate-500 truncate">{{ receiver_status }}</div>
+                    </div>
                 </div>
 
-                <div>
-                    <h1 class="text-base font-semibold text-slate-900">{{ receiver_name }}</h1>
-                    <div id="subStatus" class="text-xs text-slate-500">{{ receiver_status }}</div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <a href="{% url 'chat_list' %}"
+                       class="w-10 h-10 flex items-center justify-center rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 transition"
+                       title="Asosiy sahifa">
+                        <i data-lucide="home" class="w-5 h-5"></i>
+                    </a>
+
+                    <button id="reconnectBtn"
+                            class="w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-900 hover:bg-slate-800 text-white transition active:scale-[0.98]"
+                            title="Qayta ulash">
+                        <i data-lucide="refresh-ccw" class="w-5 h-5"></i>
+                    </button>
                 </div>
-            </div>
-
-            <div class="flex items-center gap-2">
-                <a href="{% url 'chat_list' %}"
-                   class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700"
-                   title="Asosiy sahifa">
-                    <i data-lucide="home" class="w-5 h-5"></i>
-                </a>
-
-                <button id="reconnectBtn"
-                        class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-900 hover:bg-slate-800 text-white"
-                        title="Qayta ulash">
-                    <i data-lucide="refresh-ccw" class="w-5 h-5"></i>
-                </button>
             </div>
         </div>
+    </header>
 
-        <!-- Messages -->
-        <div id="messages" class="h-[68vh] overflow-y-auto px-5 py-5 space-y-3 bg-slate-50"></div>
+    <!-- Messages area -->
+    <main class="flex-1 bg-slate-50">
+        <div class="mx-auto max-w-5xl px-4 sm:px-6">
+            <div class="msg-inner">
+                <div id="messages"
+                     class="h-[calc(100vh-160px)] sm:h-[calc(100vh-168px)] overflow-y-auto py-5 space-y-3">
+                    <!-- messages injected -->
+                </div>
+            </div>
+        </div>
+    </main>
 
-        <!-- Composer -->
-        <div class="p-4 border-t bg-white">
-            <form id="form" class="flex items-end gap-3">
+    <!-- Composer -->
+    <footer class="sticky bottom-0 z-30 bg-white/90 backdrop-blur border-t border-slate-200">
+        <div class="mx-auto max-w-5xl px-4 sm:px-6 py-3">
+            <form id="form" class="flex items-end gap-2">
 
                 <!-- Emoji -->
                 <div class="relative">
-                    <button type="button" id="emojiBtn" class="p-3 rounded-2xl bg-slate-100 hover:bg-slate-200"
-                            title="Emoji">
-                        <i data-lucide="smile" class="w-5 h-5 text-slate-700"></i>
+                    <button type="button"
+                            id="emojiBtn"
+                            class="h-11 w-11 rounded-2xl border border-slate-200 bg-white
+               hover:bg-slate-50 transition active:scale-[0.98]
+               flex items-center justify-center">
+                        <i data-lucide="smile"
+                           class="w-5 h-5 text-slate-700 -translate-y-[1px]"
+                           style="stroke-width:2.2"></i>
                     </button>
 
+
+                    <!-- Picker (no search) -->
                     <div id="emojiPicker"
-                         class="hidden absolute bottom-14 left-0 w-80 bg-white border border-slate-200 rounded-2xl shadow-lg p-3">
+                         class="hidden absolute bottom-14 left-0 w-72 sm:w-80 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
 
-                        <div class="flex items-center justify-between gap-2 mb-2">
-                            <div class="text-xs text-slate-500">Emoji tanlang</div>
-                            <button id="emojiCloseBtn" type="button" class="p-1 rounded-lg hover:bg-slate-100"
+                        <div class="px-3 py-2 border-b border-slate-200 flex items-center justify-between">
+                            <div class="text-xs font-semibold text-slate-600">Emoji</div>
+                            <button id="emojiCloseBtn" type="button"
+                                    class="w-9 h-9 rounded-xl hover:bg-slate-50 flex items-center justify-center transition"
                                     title="Yopish">
-                                <i data-lucide="x" class="w-4 h-4 text-slate-600"></i>
+                                <i data-lucide="x" class="w-4.5 h-4.5 text-slate-600"></i>
                             </button>
                         </div>
 
-                        <input id="emojiSearch" type="text" autocomplete="off"
-                               class="w-full mb-3 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm"
-                               placeholder="Qidirish"/>
-
-                        <div class="flex gap-2 mb-3">
-                            <button type="button" data-tab="faces"
-                                    class="emojiTab flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-slate-900 text-white">
-                                🙂
-                            </button>
-                            <button type="button" data-tab="hearts"
-                                    class="emojiTab flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">
-                                ❤️
-                            </button>
-                            <button type="button" data-tab="others"
-                                    class="emojiTab flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">
-                                ✨
-                            </button>
+                        <!-- Tabs -->
+                        <div class="p-3">
+                            <div class="flex gap-2">
+                                <button type="button" data-tab="faces"
+                                        class="emojiTab flex-1 px-3 py-2 rounded-xl text-sm font-semibold bg-slate-900 text-white">
+                                    🙂
+                                </button>
+                                <button type="button" data-tab="hands"
+                                        class="emojiTab flex-1 px-3 py-2 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200">
+                                    ✋
+                                </button>
+                                <button type="button" data-tab="hearts"
+                                        class="emojiTab flex-1 px-3 py-2 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200">
+                                    ❤️
+                                </button>
+                            </div>
                         </div>
 
-                        <div id="emojiGrid" class="grid grid-cols-8 gap-2 text-xl max-h-64 overflow-y-auto pr-1"></div>
-
-                        <div id="emojiEmpty" class="hidden text-sm text-slate-500 mt-3 text-center">
-                            Hech narsa topilmadi 😅
+                        <div class="px-3 pb-3">
+                            <div id="emojiGrid"
+                                 class="grid grid-cols-8 gap-1.5 text-xl max-h-56 overflow-y-auto pr-1"></div>
                         </div>
                     </div>
                 </div>
 
+                <!-- Input -->
                 <div class="flex-1">
                     <input id="messageInput" autocomplete="off"
-                           class="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                           class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200
+                        focus:outline-none focus:ring-4 focus:ring-slate-900/10 focus:border-slate-300 transition"
                            placeholder="Xabar yozing..."/>
                 </div>
 
+                <!-- Send -->
                 <button id="sendBtn"
-                        class="p-3 rounded-2xl bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Yuborish">
-                    <i data-lucide="send" class="w-5 h-5"></i>
+                        class="h-11 w-11 rounded-2xl bg-slate-900 text-white hover:bg-slate-800
+               transition active:scale-[0.98]
+               flex items-center justify-center shadow-sm">
+                    <i data-lucide="arrow-up"
+                       class="w-5 h-5 -translate-y-[1px]"
+                       style="stroke-width:2.4"></i>
                 </button>
             </form>
         </div>
+    </footer>
 
-    </div>
 </div>
 
 <script>
@@ -210,8 +303,6 @@
     const emojiPicker = document.getElementById("emojiPicker");
     const emojiGrid = document.getElementById("emojiGrid");
     const emojiCloseBtn = document.getElementById("emojiCloseBtn");
-    const emojiSearch = document.getElementById("emojiSearch");
-    const emojiEmpty = document.getElementById("emojiEmpty");
     const emojiTabs = Array.from(document.querySelectorAll(".emojiTab"));
 
     let socket = null;
@@ -219,17 +310,26 @@
     let typingCooldown = false;
     let lastBaseStatus = subStatusEl.textContent || "yaqinda onlayn edi";
 
-    function escapeHtml(s) {
-        return (s || "")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
-    }
-
     function setSubStatus(text) {
         subStatusEl.textContent = text;
+    }
+
+    // Telegram-like ticks as SVG (tight ✓✓)
+    function makeTicks(isRead) {
+        const wrap = document.createElement("span");
+        wrap.className = "ticks";
+        wrap.dataset.read = isRead ? "1" : "0";
+
+        // two check icons (overlapped), CSS controls visibility
+        wrap.innerHTML = `
+    <svg class="c1" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20 6L9 17l-5-5"></path>
+    </svg>
+    <svg class="c2" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20 6L9 17l-5-5"></path>
+    </svg>
+  `;
+        return wrap;
     }
 
     function addMessage({id, message, created_at, user_id, is_read}, isMe = false) {
@@ -251,14 +351,7 @@
         timeEl.textContent = created_at || "";
         meta.appendChild(timeEl);
 
-        if (isMe) {
-            const ticks = document.createElement("span");
-            ticks.className = "ticks";
-            const read = !!is_read;
-            ticks.dataset.read = read ? "1" : "0";
-            ticks.textContent = read ? "✓✓" : "✓";
-            meta.appendChild(ticks);
-        }
+        if (isMe) meta.appendChild(makeTicks(!!is_read));
 
         bubble.appendChild(text);
         bubble.appendChild(meta);
@@ -275,10 +368,7 @@
             const mid = Number(b.dataset.id || 0);
             if (mid && mid <= upTo) {
                 const t = b.querySelector(".ticks");
-                if (t) {
-                    t.textContent = "✓✓";
-                    t.dataset.read = "1";
-                }
+                if (t) t.dataset.read = "1";
             }
         });
     }
@@ -297,13 +387,11 @@
             sendBtn.disabled = false;
             setSubStatus(lastBaseStatus);
         };
-
         socket.onclose = () => {
             sendBtn.disabled = true;
             lastBaseStatus = "yaqinda onlayn edi";
             setSubStatus(lastBaseStatus);
         };
-
         socket.onerror = () => {
             sendBtn.disabled = true;
             setSubStatus("Xatolik");
@@ -314,10 +402,7 @@
 
             if (data.history) {
                 messagesEl.innerHTML = "";
-                (data.messages || []).forEach(m => {
-                    const isMe = (Number(m.user_id) === ME_ID);
-                    addMessage(m, isMe);
-                });
+                (data.messages || []).forEach(m => addMessage(m, Number(m.user_id) === ME_ID));
                 setSubStatus(lastBaseStatus);
                 return;
             }
@@ -344,10 +429,7 @@
                 return;
             }
 
-            if (data.message) {
-                const isMe = (Number(data.user_id) === ME_ID);
-                addMessage(data, isMe);
-            }
+            if (data.message) addMessage(data, Number(data.user_id) === ME_ID);
         };
     }
 
@@ -386,207 +468,21 @@
         inputEl.focus();
     });
 
-    // --- Emoji picker ---
+    // --- Emoji picker (NO SEARCH, 3 tabs only) ---
     const EMOJIS = {
         faces: [
-            {e: "😀", k: ["grinning", "smile", "face"]}, {e: "😁", k: ["grin", "happy", "face"]}, {
-                e: "😂",
-                k: ["joy", "laugh", "lol", "face"]
-            },
-            {e: "🤣", k: ["rofl", "laugh", "face"]}, {e: "😃", k: ["smiley", "happy", "face"]}, {
-                e: "😄",
-                k: ["smile", "happy", "face"]
-            },
-            {e: "😅", k: ["sweat_smile", "nervous", "face"]}, {e: "😆", k: ["laugh", "face"]}, {
-                e: "😉",
-                k: ["wink", "face"]
-            },
-            {e: "😊", k: ["blush", "smile", "face"]}, {e: "🙂", k: ["slight_smile", "face"]}, {
-                e: "🙃",
-                k: ["upside_down", "face"]
-            },
-            {e: "😍", k: ["heart_eyes", "love", "face"]}, {e: "😘", k: ["kiss", "face"]}, {
-                e: "😗",
-                k: ["kiss", "face"]
-            },
-            {e: "😙", k: ["kiss", "face"]}, {e: "😚", k: ["kiss", "face"]}, {e: "😋", k: ["yummy", "tongue", "face"]},
-            {e: "😛", k: ["tongue", "face"]}, {e: "😜", k: ["wink", "tongue", "face"]}, {
-                e: "🤪",
-                k: ["crazy", "face"]
-            },
-            {e: "😝", k: ["tongue", "face"]}, {e: "🤑", k: ["money", "face"]}, {e: "🤗", k: ["hug", "face"]},
-            {e: "🤭", k: ["oops", "giggle", "face"]}, {e: "🤫", k: ["shush", "face"]}, {e: "🤔", k: ["think", "face"]},
-            {e: "😐", k: ["neutral", "face"]}, {e: "😑", k: ["expressionless", "face"]}, {
-                e: "😶",
-                k: ["no_mouth", "face"]
-            },
-            {e: "🙄", k: ["rolling_eyes", "face"]}, {e: "😏", k: ["smirk", "face"]}, {
-                e: "😌",
-                k: ["relieved", "face"]
-            },
-            {e: "😔", k: ["sad", "face"]}, {e: "😪", k: ["sleepy", "face"]}, {e: "🤤", k: ["drool", "face"]},
-            {e: "😴", k: ["sleep", "face"]}, {e: "😷", k: ["mask", "sick", "face"]}, {
-                e: "🤒",
-                k: ["fever", "sick", "face"]
-            },
-            {e: "🤕", k: ["injured", "face"]}, {e: "🤢", k: ["nauseated", "sick", "face"]}, {
-                e: "🤮",
-                k: ["vomit", "sick", "face"]
-            },
-            {e: "🤧", k: ["sneeze", "sick", "face"]}, {e: "🥵", k: ["hot", "face"]}, {e: "🥶", k: ["cold", "face"]},
-            {e: "😵", k: ["dizzy", "face"]}, {e: "🤯", k: ["mind_blown", "face"]}, {
-                e: "😎",
-                k: ["cool", "sunglasses", "face"]
-            },
-            {e: "🤓", k: ["nerd", "face"]}, {e: "🧐", k: ["monocle", "face"]}, {e: "😕", k: ["confused", "face"]},
-            {e: "😟", k: ["worried", "face"]}, {e: "🙁", k: ["slight_frown", "face"]}, {
-                e: "☹️",
-                k: ["frown", "sad", "face"]
-            },
-            {e: "😮", k: ["open_mouth", "face"]}, {e: "😯", k: ["hushed", "face"]}, {
-                e: "😲",
-                k: ["astonished", "face"]
-            },
-            {e: "😳", k: ["flushed", "face"]}, {e: "🥺", k: ["pleading", "face"]}, {e: "😦", k: ["frown", "face"]},
-            {e: "😧", k: ["anguished", "face"]}, {e: "😨", k: ["fear", "face"]}, {e: "😰", k: ["cold_sweat", "face"]},
-            {e: "😥", k: ["sad", "face"]}, {e: "😢", k: ["cry", "sad", "face"]}, {
-                e: "😭",
-                k: ["sob", "cry", "sad", "face"]
-            },
-            {e: "😱", k: ["scream", "fear", "face"]}, {e: "😖", k: ["confounded", "face"]}, {
-                e: "😣",
-                k: ["persevere", "face"]
-            },
-            {e: "😞", k: ["disappointed", "sad", "face"]}, {e: "😓", k: ["sweat", "face"]}, {
-                e: "😩",
-                k: ["weary", "face"]
-            },
-            {e: "😫", k: ["tired", "face"]}, {e: "😤", k: ["triumph", "angry", "face"]}, {
-                e: "😡",
-                k: ["rage", "angry", "face"]
-            },
-            {e: "😠", k: ["angry", "face"]}, {e: "🤬", k: ["swearing", "angry", "face"]}, {
-                e: "😈",
-                k: ["smiling_imp", "devil", "face"]
-            },
-            {e: "👿", k: ["imp", "devil", "face"]}, {e: "💀", k: ["skull", "dead"]}, {
-                e: "☠️",
-                k: ["skull", "bones", "dead"]
-            }
+            "😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊", "🙂", "🙃", "😍", "😘", "😗", "😙", "😚", "😋", "😛", "😜", "🤪", "😝",
+            "🤗", "🤭", "🤫", "🤔", "😐", "😑", "😶", "🙄", "😏", "😌", "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🤧",
+            "🥵", "🥶", "😵", "🤯", "😎", "🤓", "🧐", "😕", "😟", "🙁", "☹️", "😮", "😯", "😲", "😳", "🥺", "😦", "😧", "😨",
+            "😰", "😥", "😢", "😭", "😱", "😖", "😣", "😞", "😓", "😩", "😫", "😤", "😡", "😠", "🤬"
+        ],
+        hands: [
+            "👋", "🤚", "✋", "🖐️", "🖖", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👍", "👎", "👊", "✊", "🤛", "🤜",
+            "👏", "🙌", "👐", "🤲", "🙏", "💪"
         ],
         hearts: [
-            {e: "❤️", k: ["heart", "love", "red"]}, {e: "🧡", k: ["heart", "love", "orange"]}, {
-                e: "💛",
-                k: ["heart", "love", "yellow"]
-            },
-            {e: "💚", k: ["heart", "love", "green"]}, {e: "💙", k: ["heart", "love", "blue"]}, {
-                e: "💜",
-                k: ["heart", "love", "purple"]
-            },
-            {e: "🖤", k: ["heart", "love", "black"]}, {e: "🤍", k: ["heart", "love", "white"]}, {
-                e: "🤎",
-                k: ["heart", "love", "brown"]
-            },
-            {e: "💔", k: ["broken", "heart", "sad"]}, {e: "❣️", k: ["heart", "exclamation", "love"]}, {
-                e: "💕",
-                k: ["two_hearts", "love"]
-            },
-            {e: "💞", k: ["revolving", "hearts", "love"]}, {e: "💓", k: ["beating", "heart", "love"]}, {
-                e: "💗",
-                k: ["growing", "heart", "love"]
-            },
-            {e: "💖", k: ["sparkling", "heart", "love"]}, {e: "💘", k: ["heart", "arrow", "love"]}, {
-                e: "💝",
-                k: ["heart", "gift", "love"]
-            },
-            {e: "💟", k: ["heart", "decoration", "love"]}, {e: "❤️‍🔥", k: ["heart", "fire", "love"]}, {
-                e: "❤️‍🩹",
-                k: ["mending", "heart", "heal", "love"]
-            },
-            {e: "💌", k: ["love", "letter", "heart"]}, {e: "💋", k: ["kiss", "love"]}, {
-                e: "🫶",
-                k: ["hands", "heart", "love"]
-            },
-            {e: "💍", k: ["ring", "love", "marriage"]}
-        ],
-        others: [
-            {e: "👋", k: ["wave", "hello"]}, {e: "🤚", k: ["hand", "stop"]}, {e: "✋", k: ["hand", "stop"]}, {
-                e: "🖐️",
-                k: ["hand", "high_five"]
-            },
-            {e: "🖖", k: ["vulcan", "spock"]}, {e: "👌", k: ["ok", "hand"]}, {e: "🤌", k: ["italian", "hand"]}, {
-                e: "🤏",
-                k: ["pinch", "small"]
-            },
-            {e: "✌️", k: ["victory", "peace"]}, {e: "🤞", k: ["fingers_crossed", "luck"]}, {
-                e: "🤟",
-                k: ["love_you", "hand"]
-            },
-            {e: "🤘", k: ["rock", "hand"]}, {e: "🤙", k: ["call_me", "hand"]}, {
-                e: "👍",
-                k: ["thumbs_up", "like"]
-            }, {e: "👎", k: ["thumbs_down", "dislike"]},
-            {e: "👊", k: ["fist", "punch"]}, {e: "✊", k: ["raised_fist"]}, {e: "🤛", k: ["left_fist"]}, {
-                e: "🤜",
-                k: ["right_fist"]
-            },
-            {e: "👏", k: ["clap", "applause"]}, {e: "🙌", k: ["hooray", "praise"]}, {e: "👐", k: ["open_hands"]}, {
-                e: "🤲",
-                k: ["palms_up"]
-            },
-            {e: "🙏", k: ["pray", "thanks"]}, {e: "💪", k: ["muscle", "strong"]}, {e: "🦾", k: ["bionic", "arm"]}, {
-                e: "🧠",
-                k: ["brain", "think"]
-            },
-            {e: "💡", k: ["idea", "light"]}, {e: "💯", k: ["100", "perfect"]}, {
-                e: "✨",
-                k: ["sparkles", "shine"]
-            }, {e: "🔥", k: ["fire", "hot"]},
-            {e: "⭐", k: ["star"]}, {e: "🌟", k: ["glowing", "star"]}, {e: "🎉", k: ["party", "tada"]}, {
-                e: "🎊",
-                k: ["confetti", "party"]
-            },
-            {e: "🥳", k: ["party", "celebrate"]}, {e: "🎂", k: ["cake", "birthday"]}, {
-                e: "🍰",
-                k: ["cake", "dessert"]
-            }, {e: "🍕", k: ["pizza", "food"]},
-            {e: "🍔", k: ["burger", "food"]}, {e: "🍟", k: ["fries", "food"]}, {e: "🌭", k: ["hotdog", "food"]}, {
-                e: "🍿",
-                k: ["popcorn", "movie"]
-            },
-            {e: "🍩", k: ["donut", "dessert"]}, {e: "🍪", k: ["cookie", "dessert"]}, {
-                e: "☕",
-                k: ["coffee", "drink"]
-            }, {e: "🍵", k: ["tea", "drink"]},
-            {e: "🧃", k: ["juice", "drink"]}, {e: "🥤", k: ["soda", "drink"]}, {e: "🍎", k: ["apple", "fruit"]}, {
-                e: "🍌",
-                k: ["banana", "fruit"]
-            },
-            {e: "🍓", k: ["strawberry", "fruit"]}, {e: "🍉", k: ["watermelon", "fruit"]}, {
-                e: "🍇",
-                k: ["grapes", "fruit"]
-            }, {e: "📱", k: ["phone", "mobile"]},
-            {e: "💻", k: ["laptop", "computer"]}, {e: "⌚", k: ["watch", "time"]}, {e: "📷", k: ["camera"]}, {
-                e: "📸",
-                k: ["camera", "flash"]
-            },
-            {e: "📌", k: ["pin"]}, {e: "📎", k: ["paperclip"]}, {e: "🕒", k: ["clock", "time"]}, {
-                e: "⌛",
-                k: ["hourglass", "time"]
-            },
-            {e: "⏳", k: ["hourglass", "time"]}, {e: "🚀", k: ["rocket"]}, {e: "✈️", k: ["airplane", "travel"]}, {
-                e: "🚗",
-                k: ["car", "travel"]
-            },
-            {e: "🏠", k: ["home", "house"]}, {e: "⚽", k: ["football", "soccer"]}, {e: "🏀", k: ["basketball"]}, {
-                e: "🏈",
-                k: ["american_football"]
-            },
-            {e: "⚾", k: ["baseball"]}, {e: "🎾", k: ["tennis"]}, {e: "🏐", k: ["volleyball"]}, {
-                e: "🎮",
-                k: ["game", "controller"]
-            },
-            {e: "🎧", k: ["headphones", "music"]}
+            "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟",
+            "❤️‍🔥", "❤️‍🩹", "💌", "💋", "🫶", "💍"
         ]
     };
 
@@ -597,37 +493,21 @@
         emojiTabs.forEach(btn => {
             const isActive = btn.dataset.tab === tab;
             btn.className =
-                "emojiTab flex-1 px-3 py-2 rounded-xl text-sm font-medium " +
+                "emojiTab flex-1 px-3 py-2 rounded-xl text-sm font-semibold " +
                 (isActive ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200");
         });
         renderEmojis();
     }
 
-    function matchesSearch(item, q) {
-        if (!q) return true;
-        const query = q.toLowerCase().trim();
-        if (!query) return true;
-        return (item.k || []).some(x => String(x).toLowerCase().includes(query));
-    }
-
     function renderEmojis() {
-        const q = emojiSearch.value || "";
         emojiGrid.innerHTML = "";
-
-        const items = (EMOJIS[activeTab] || []).filter(it => matchesSearch(it, q));
-        if (items.length === 0) {
-            emojiEmpty.classList.remove("hidden");
-            return;
-        }
-        emojiEmpty.classList.add("hidden");
-
-        items.forEach(it => {
+        (EMOJIS[activeTab] || []).forEach(e => {
             const btn = document.createElement("button");
             btn.type = "button";
-            btn.textContent = it.e;
-            btn.className = "w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition";
+            btn.textContent = e;
+            btn.className = "w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 transition";
             btn.onclick = () => {
-                inputEl.value += it.e;
+                inputEl.value += e;
                 inputEl.focus();
             };
             emojiGrid.appendChild(btn);
@@ -636,22 +516,16 @@
 
     function openEmojiPicker() {
         emojiPicker.classList.remove("hidden");
-        emojiSearch.value = "";
         setActiveTab(activeTab);
-        setTimeout(() => emojiSearch.focus(), 0);
     }
 
     function closeEmojiPicker() {
         emojiPicker.classList.add("hidden");
     }
 
-    emojiBtn.onclick = () => {
-        emojiPicker.classList.contains("hidden") ? openEmojiPicker() : closeEmojiPicker();
-    };
-
+    emojiBtn.onclick = () => emojiPicker.classList.contains("hidden") ? openEmojiPicker() : closeEmojiPicker();
     emojiCloseBtn.onclick = closeEmojiPicker;
     emojiTabs.forEach(btn => btn.addEventListener("click", () => setActiveTab(btn.dataset.tab)));
-    emojiSearch.addEventListener("input", renderEmojis);
 
     document.addEventListener("click", (e) => {
         if (!emojiBtn.contains(e.target) && !emojiPicker.contains(e.target)) closeEmojiPicker();
