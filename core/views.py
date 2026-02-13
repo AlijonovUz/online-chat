@@ -44,14 +44,14 @@ def chat_list(request):
 
 
 @login_required
-def private_chat(request, receiver_id: int):
-    receiver = get_object_or_404(User, id=receiver_id)
+def private_chat(request, receiver_username: str):
+    receiver = get_object_or_404(User, username=receiver_username)
 
     receiver_name = display_name(receiver)
     receiver_status = "onlayn" if bool(cache.get(f"online:{receiver.id}")) else "yaqinda onlayn edi"
 
     return render(request, "chat.html", {
-        "receiver_id": receiver_id,
+        "receiver_id": receiver.id,
         "receiver_name": receiver_name,
         "receiver_status": receiver_status,
         "me_id": request.user.id,
