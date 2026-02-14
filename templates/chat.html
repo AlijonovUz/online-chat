@@ -374,7 +374,6 @@
         }, 0);
     }
 
-
     function makeTicks(isRead) {
         const wrap = document.createElement("span");
         wrap.className = "ticks";
@@ -391,7 +390,36 @@
         return wrap;
     }
 
+    function renderEmptyState() {
+        messagesEl.innerHTML = `
+        <div data-empty class="h-full flex items-center justify-center px-4">
+            <div class="text-center max-w-xs w-full">
+
+                <div class="mx-auto w-16 h-16 rounded-2xl
+                            bg-slate-100 border border-slate-200
+                            flex items-center justify-center mb-5 shadow-sm">
+                    <i data-lucide="message-circle" class="w-7 h-7 text-slate-500"></i>
+                </div>
+
+                <div class="text-base font-semibold text-slate-700">
+                    Hali xabar yo‘q
+                </div>
+
+                <div class="text-sm text-slate-500 mt-1">
+                    Suhbatni boshlang va birinchi xabarni yuboring
+                </div>
+
+            </div>
+        </div>
+    `;
+
+        lucide.createIcons();
+    }
+
     function addMessage({id, message, created_at, user_id, is_read, is_edited}, isMe = false) {
+        const empty = messagesEl.querySelector("[data-empty]");
+        if (empty) empty.remove();
+
         const row = document.createElement("div");
         row.className = "msg-row " + (isMe ? "out" : "in");
 
@@ -470,7 +498,16 @@
 
             if (data.history) {
                 messagesEl.innerHTML = "";
-                (data.messages || []).forEach(m => addMessage(m, Number(m.user_id) === ME_ID));
+
+                if (!data.messages || !data.messages.length) {
+                    renderEmptyState();
+                    return;
+                }
+
+                data.messages.forEach(m =>
+                    addMessage(m, Number(m.user_id) === ME_ID)
+                );
+
                 setSubStatus(lastBaseStatus);
                 return;
             }
