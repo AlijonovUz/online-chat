@@ -204,7 +204,7 @@
     </style>
 </head>
 
-<body class="bg-white text-slate-900">
+<body class="bg-white text-slate-900 select-none">
 <div class="app-vh flex flex-col">
 
     <header class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200">
@@ -216,8 +216,29 @@
                     </div>
 
                     <div class="min-w-0">
-                        <h1 class="text-base sm:text-lg font-semibold text-slate-900 truncate">{{ receiver_name }}</h1>
-                        <div id="subStatus" class="text-xs text-slate-500 truncate">{{ receiver_status }}</div>
+                        <div class="flex items-center gap-1">
+                            <h1 class="text-base sm:text-lg font-semibold text-slate-900 truncate">
+                                {{ receiver_name }}
+                            </h1>
+
+                            {% if receiver_is_verified %}
+                            <svg class="w-[16px] h-[16px] shrink-0 block"
+                                 viewBox="0 0 24 24"
+                                 fill="none"
+                                 aria-hidden="true">
+                                <circle cx="12" cy="12" r="10" fill="#3390EC"/>
+                                <path d="M8 12.5L10.2 14.7L16 9"
+                                      stroke="white"
+                                      stroke-width="2"
+                                      stroke-linecap="round"
+                                      stroke-linejoin="round"/>
+                            </svg>
+                            {% endif %}
+                        </div>
+
+                        <div id="subStatus" class="text-xs text-slate-500 truncate">
+                            {{ receiver_status }}
+                        </div>
                     </div>
                 </div>
 
@@ -331,6 +352,7 @@
 
     let socket = null;
     let typingTimer = null;
+    let editingMessageId = null;
     let typingCooldown = false;
     let lastBaseStatus = subStatusEl.textContent || "yaqinda onlayn edi";
 
@@ -369,7 +391,7 @@
         return wrap;
     }
 
-    function addMessage({id, message, created_at, user_id, is_read}, isMe = false) {
+    function addMessage({id, message, created_at, user_id, is_read, is_edited}, isMe = false) {
         const row = document.createElement("div");
         row.className = "msg-row " + (isMe ? "out" : "in");
 
@@ -383,6 +405,14 @@
 
         const meta = document.createElement("div");
         meta.className = "bubble-meta";
+
+        if (is_edited) {
+            const ed = document.createElement("span");
+            ed.className = "edited-label";
+            ed.textContent = "✎";
+            ed.style.opacity = "0.75";
+            meta.appendChild(ed);
+        }
 
         const timeEl = document.createElement("span");
         timeEl.textContent = created_at || "";
@@ -467,6 +497,39 @@
                 return;
             }
 
+            if (data.type === "chat_edited") {
+                const mid = Number(data.message_id || 0);
+                if (!mid) return;
+
+                const bubble = document.querySelector(`.bubble[data-id="${mid}"]`);
+                if (!bubble) return;
+
+                const textEl = bubble.querySelector(".bubble-text");
+                if (textEl) textEl.textContent = data.message || "";
+
+                const meta = bubble.querySelector(".bubble-meta");
+                if (meta) {
+                    let ed = meta.querySelector(".edited-label");
+
+                    if (!ed) {
+                        ed = document.createElement("span");
+                        ed.className = "edited-label";
+                        ed.style.opacity = "0.75";
+                    }
+
+                    ed.textContent = "✎";
+
+                    const timeEl = meta.querySelector("span");
+                    if (timeEl) {
+                        meta.insertBefore(ed, timeEl);
+                    } else {
+                        meta.prepend(ed);
+                    }
+                }
+
+                return;
+            }
+
             if (data.type === "chat_deleted") {
                 const mid = Number(data.message_id || 0);
                 if (!mid) return;
@@ -513,7 +576,18 @@
         const msg = (inputEl.value || "").trim();
         if (!msg) return;
 
-        socket.send(JSON.stringify({message: msg}));
+        if (editingMessageId) {
+            socket.send(JSON.stringify({
+                edit: true,
+                message_id: editingMessageId,
+                message: msg
+            }));
+            editingMessageId = null;
+            inputEl.classList.remove("ring-2", "ring-blue-500");
+        } else {
+            socket.send(JSON.stringify({message: msg}));
+        }
+
         inputEl.value = "";
         autoGrowTextarea();
         inputEl.focus();
@@ -589,6 +663,11 @@
       <span>Nusxalash</span>
     </button>
     <div class="ctx-sep"></div>
+    <button type="button" class="ctx-item" data-action="edit">
+      <i data-lucide="edit-3" class="w-4 h-4"></i>
+      <span>Tahrirlash</span>
+    </button>
+    <div class="ctx-sep"></div>
     <button type="button" class="ctx-item danger" data-action="delete">
       <i data-lucide="trash-2" class="w-4 h-4"></i>
       <span>O‘chirish</span>
@@ -613,9 +692,18 @@
 
         const msgId = bubble?.dataset?.id ? Number(bubble.dataset.id) : 0;
         const isMine = bubble?.classList?.contains("out");
+        const mine = (isMine && msgId);
 
         const delBtn = ctxMenu.querySelector('[data-action="delete"]');
-        delBtn.style.display = (isMine && msgId) ? "flex" : "none";
+        const editBtn = ctxMenu.querySelector('[data-action="edit"]');
+
+        delBtn.style.display = mine ? "flex" : "none";
+        editBtn.style.display = mine ? "flex" : "none";
+
+        const seps = ctxMenu.querySelectorAll(".ctx-sep");
+
+        if (seps[0]) seps[0].style.display = mine ? "block" : "none";
+        if (seps[1]) seps[1].style.display = mine ? "block" : "none";
 
         ctxMenu.style.display = "block";
 
@@ -663,6 +751,23 @@
 
         if (action === "copy") {
             await copyText(text);
+            hideCtxMenu();
+            return;
+        }
+
+        if (action === "edit") {
+            const messageId = Number(ctxTargetBubble.dataset.id || 0);
+            const isMine = ctxTargetBubble.classList.contains("out");
+            if (!isMine || !messageId) return;
+
+            const text = ctxTargetBubble.querySelector(".bubble-text")?.textContent || "";
+            editingMessageId = messageId;
+
+            inputEl.value = text;
+            autoGrowTextarea();
+            inputEl.focus();
+            inputEl.classList.add("ring-2", "ring-blue-500");
+
             hideCtxMenu();
             return;
         }
@@ -746,6 +851,37 @@
     }
 
     connectWs();
+</script>
+<script>
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    document.addEventListener('keydown', (e) => {
+        const key = e.key?.toLowerCase();
+
+        if (e.key === 'F12') {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+
+        if (e.ctrlKey && e.shiftKey && (key === 'i' || key === 'j' || key === 'c')) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+
+        if (e.ctrlKey && key === 'u') {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+
+        if (e.metaKey && e.altKey && (key === 'i' || key === 'j')) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+    }, true);
 </script>
 </body>
 </html>

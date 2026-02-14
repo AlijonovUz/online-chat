@@ -1,7 +1,9 @@
-from django.contrib.auth import get_user_model
 from django.db import models
+from django.contrib.auth.models import AbstractUser
 
-User = get_user_model()
+
+class User(AbstractUser):
+    is_verified = models.BooleanField(default=False)
 
 
 class Message(models.Model):
@@ -9,6 +11,8 @@ class Message(models.Model):
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name="received_messages")
     text = models.TextField()
     is_read = models.BooleanField(default=False)
+    is_edited = models.BooleanField(default=False)
+    edited_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

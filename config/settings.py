@@ -116,6 +116,7 @@ SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
 ASGI_APPLICATION = "config.asgi.application"
 WSGI_APPLICATION = "config.wsgi.application"
+AUTH_USER_MODEL = "core.User"
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
@@ -167,6 +168,13 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Media files
+
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# login & logout settings
 
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"

@@ -34,6 +34,7 @@ def chat_list(request):
             "username": user.username,
             "online": bool(cache.get(f"online:{user.id}")),
             "unread": user.unread_count,
+            "is_verified": user.is_verified,
         })
 
     return render(request, "chat_list.html", {
@@ -55,6 +56,7 @@ def private_chat(request, receiver_username: str):
         "receiver_name": receiver_name,
         "receiver_status": receiver_status,
         "me_id": request.user.id,
+        "receiver_is_verified": receiver.is_verified,
     })
 
 
