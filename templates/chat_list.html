@@ -35,7 +35,26 @@
                     </div>
                     <div class="leading-tight">
                         <div class="text-xl font-semibold tracking-tight">Chatlar</div>
-                        <div class="text-xs text-slate-500">Siz: <span class="font-semibold">{{ me_name }}</span></div>
+                        <div class="text-xs text-slate-500">
+                            Siz:
+                            <span class="font-semibold inline-flex items-center gap-1">
+                                {{ user.first_name }} {{ user.last_name }}
+
+                                {% if user.is_verified %}
+                                <svg class="w-[14px] h-[14px] shrink-0"
+                                     viewBox="0 0 24 24"
+                                     fill="none"
+                                     aria-hidden="true">
+                                    <circle cx="12" cy="12" r="10" fill="#3390EC"/>
+                                    <path d="M8 12.5L10.2 14.7L16 9"
+                                          stroke="white"
+                                          stroke-width="2"
+                                          stroke-linecap="round"
+                                          stroke-linejoin="round"/>
+                                </svg>
+                                {% endif %}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -62,9 +81,9 @@
 
             <div class="mt-4">
                 <div class="relative">
-          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-            <i data-lucide="search" class="w-5 h-5"></i>
-          </span>
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <i data-lucide="search" class="w-5 h-5"></i>
+                  </span>
 
                     <input
                             id="search"
@@ -83,6 +102,10 @@
                     >
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
+                    <div id="searchBox"
+                         class="hidden absolute z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                        <div id="searchResults" class="max-h-80 overflow-auto soft-scroll"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -174,44 +197,64 @@
 
     const search = document.getElementById("search");
     const clearBtn = document.getElementById("clearSearch");
-    const list = document.getElementById("list");
-    let rows = Array.from(document.querySelectorAll(".user-row"));
+    const box = document.getElementById("searchBox");
+    const resultsEl = document.getElementById("searchResults");
 
-    function sortRows() {
-        rows.sort((a, b) => {
-            const oa = parseInt(a.dataset.online || "0", 10);
-            const ob = parseInt(b.dataset.online || "0", 10);
-            if (oa !== ob) return ob - oa;
+    let timer = null;
 
-            const ua = parseInt(a.dataset.unread || "0", 10);
-            const ub = parseInt(b.dataset.unread || "0", 10);
-            if (ua !== ub) return ub - ua;
+    function renderResults(items) {
+        if (!items.length) {
+            resultsEl.innerHTML = `<div class="p-4 text-sm text-slate-500">Foydalanuvchi topilmadi.</div>`;
+            return;
+        }
 
-            const na = (a.dataset.name || "");
-            const nb = (b.dataset.name || "");
-            return na.localeCompare(nb);
-        });
-        rows.forEach(r => list.appendChild(r));
+        resultsEl.innerHTML = items.map(u => `
+        <a href="/chat/${u.username}/"
+           class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 transition">
+            <div class="min-w-0">
+                <div class="flex items-center gap-1 min-w-0">
+                    <div class="truncate font-medium text-slate-900">${u.name}</div>
+                    ${u.is_verified ? `
+                        <svg class="w-[14px] h-[14px] shrink-0 block" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" fill="#3390EC"></circle>
+                            <path d="M8 12.5L10.2 14.7L16 9"
+                                  stroke="white" stroke-width="2"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"></path>
+                        </svg>` : ``}
+                </div>
+                <div class="text-xs text-slate-500 truncate">@${u.username}</div>
+            </div>
+            ${u.online ? `<span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">onlayn</span>` : ``}
+        </a>
+    `).join("");
     }
 
-    function applyFilter() {
-        const q = (search.value || "").trim().toLowerCase();
-        rows.forEach(r => {
-            const hay = (r.dataset.name || "");
-            r.style.display = hay.includes(q) ? "flex" : "none";
-        });
-        clearBtn.classList.toggle("hidden", q.length === 0);
+    async function doSearch(q) {
+        const res = await fetch(`/search-users/?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        renderResults(data.results || []);
+        box.classList.remove("hidden");
     }
 
-    search.addEventListener("input", applyFilter);
-    clearBtn.addEventListener("click", () => {
-        search.value = "";
-        applyFilter();
-        search.focus();
+    search.addEventListener("input", () => {
+        const q = search.value.trim();
+
+        clearTimeout(timer);
+
+        if (q.length < 2) {
+            box.classList.add("hidden");
+            return;
+        }
+
+        timer = setTimeout(() => doSearch(q), 250);
     });
 
-    sortRows();
-    applyFilter();
+    document.addEventListener("click", (e) => {
+        if (!box.contains(e.target) && e.target !== search) {
+            box.classList.add("hidden");
+        }
+    });
 </script>
 <script>
     document.addEventListener('contextmenu', (e) => e.preventDefault());

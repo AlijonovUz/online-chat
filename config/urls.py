@@ -3,11 +3,11 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
-from core.views import login
+from core.views import LoginPageView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("accounts/login/", login),
+    path("accounts/login/", LoginPageView.as_view(), name="login"),
     path("accounts/", include('allauth.urls')),
     path("", include("core.urls")),
 ]
