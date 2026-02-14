@@ -5,7 +5,7 @@ from django.core.cache import cache
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
 
-from .models import Message, User
+from core.models import Message, User
 
 
 class MessageConsumer(AsyncWebsocketConsumer):
@@ -84,7 +84,24 @@ class MessageConsumer(AsyncWebsocketConsumer):
             )
             return
 
-        text = (data.get('message') or "").strip()
+        if data.get('delete'):
+            msg_id = int(data.get("message_id", 0))
+            if not msg_id:
+                return
+
+            ok = await self.delete_message(msg_id, self.me.id, self.receiver_id)
+            if ok:
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "chat_deleted",
+                        "message_id": msg_id,
+                        "user_id": self.me.id,
+                    }
+                )
+            return
+
+        text = data.get('message', "").strip()
         if not text:
             return
 
@@ -123,6 +140,13 @@ class MessageConsumer(AsyncWebsocketConsumer):
             "type": "chat_read",
             "reader_id": event['reader_id'],
             "up_to_id": event['up_to_id']
+        }))
+
+    async def chat_deleted(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "chat_deleted",
+            "message_id": event['message_id'],
+            "user_id": event['user_id'],
         }))
 
     async def typing_event(self, event):
@@ -190,6 +214,24 @@ class MessageConsumer(AsyncWebsocketConsumer):
         if max_id:
             qs.update(is_read=True)
         return max_id
+
+    @sync_to_async
+    def delete_message(self, msg_id: int, me_id: int, other_id: int):
+        qs = Message.objects.filter(
+            id=msg_id,
+            sender_id__in=[me_id, other_id],
+            receiver_id__in=[me_id, other_id]
+        )
+        msg = qs.first()
+
+        if not msg:
+            return False
+
+        if msg.sender_id != me_id:
+            return False
+
+        msg.delete()
+        return True
 
     def display_name(self, user):
         return (user.get_full_name() or "").strip() or user.username
