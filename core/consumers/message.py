@@ -123,6 +123,18 @@ class MessageConsumer(AsyncWebsocketConsumer):
                 )
             return
 
+        if data.get("type") == "load_older":
+            before_id = int(data.get("before_id", 0))
+            limit = int(data.get("limit", 50))
+
+            older_messages = await self.get_older_messages(before_id, limit)
+
+            await self.send(text_data=json.dumps({
+                "type": "older_messages",
+                "messages": older_messages,
+            }))
+            return
+
         text = data.get('message', "").strip()
         if not text:
             return
@@ -209,7 +221,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
             "user": self.display_name(message.sender),
             "is_read": message.is_read,
             "is_edited": message.is_edited,
-            "created_at": timezone.localtime(message.created_at).strftime("%H:%M"),
+            "created_at": timezone.localtime(message.created_at).isoformat(),
         }
 
     @sync_to_async
@@ -228,7 +240,33 @@ class MessageConsumer(AsyncWebsocketConsumer):
                 "user_id": m.sender.id,
                 "is_read": m.is_read,
                 "is_edited": m.is_edited,
-                "created_at": timezone.localtime(m.created_at).strftime("%H:%M"),
+                "created_at": timezone.localtime(m.created_at).isoformat(),
+            }
+            for m in qs
+        ]
+
+    @sync_to_async
+    def get_older_messages(self, before_id: int, limit: int):
+        qs = Message.objects.filter(
+            sender_id__in=[self.me.id, self.receiver_id],
+            receiver_id__in=[self.me.id, self.receiver_id],
+        ).order_by("-id")
+
+        if before_id:
+            qs = qs.filter(id__lt=before_id)
+
+        qs = qs[:limit]
+        qs = list(reversed(qs))
+
+        return [
+            {
+                "id": m.id,
+                "message": m.text,
+                "user": self.display_name(m.sender),
+                "user_id": m.sender.id,
+                "is_read": m.is_read,
+                "is_edited": m.is_edited,
+                "created_at": timezone.localtime(m.created_at).isoformat(),
             }
             for m in qs
         ]

@@ -201,6 +201,38 @@
             background: #e2e8f0;
             margin: 6px 6px;
         }
+
+        .loader-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 999px;
+            background: #94a3b8;
+            opacity: .35;
+            animation: ld 1s infinite ease-in-out;
+        }
+
+        .loader-dot:nth-child(2) {
+            animation-delay: .15s;
+        }
+
+        .loader-dot:nth-child(3) {
+            animation-delay: .30s;
+        }
+
+        .loading-older [data-sep="1"] {
+            visibility: hidden;
+        }
+
+        @keyframes ld {
+            0%, 100% {
+                transform: translateY(0);
+                opacity: .35;
+            }
+            50% {
+                transform: translateY(-3px);
+                opacity: .9;
+            }
+        }
     </style>
 </head>
 
@@ -255,9 +287,32 @@
     <main class="flex-1 bg-slate-50 overflow-hidden">
         <div class="mx-auto max-w-5xl px-4 sm:px-6 h-full">
             <div class="msg-inner h-full">
-                <div id="messages" class="h-full overflow-y-auto py-5 space-y-3"></div>
+                <div id="messages" class="relative h-full overflow-y-auto py-5 space-y-3">
+                    <div id="olderLoader"
+                         class="hidden absolute top-3 left-0 right-0 z-10 flex justify-center pointer-events-none">
+                        <div class="px-3 py-1 rounded-full text-[12px] font-semibold
+                bg-white/90 border border-slate-200 text-slate-500 shadow-sm
+                backdrop-blur inline-flex items-center gap-2">
+                          <span class="inline-flex gap-1">
+                            <span class="loader-dot"></span>
+                            <span class="loader-dot"></span>
+                            <span class="loader-dot"></span>
+                          </span>
+                            Yuklanmoqda...
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
+
+        <button id="scrollBottomBtn"
+                class="hidden fixed bottom-24 right-6 z-40
+               w-11 h-11 rounded-2xl bg-slate-900 text-white
+               flex items-center justify-center
+               shadow-lg hover:bg-slate-800 transition active:scale-[0.95]">
+            <i data-lucide="arrow-down" class="w-5 h-5"></i>
+        </button>
     </main>
 
     <footer class="sticky bottom-0 z-30 bg-white/90 backdrop-blur border-t border-slate-200">
@@ -283,7 +338,7 @@
                             <button id="emojiCloseBtn" type="button"
                                     class="w-9 h-9 rounded-xl hover:bg-slate-50 flex items-center justify-center transition"
                                     title="Yopish">
-                                <i data-lucide="x" class="w-4.5 h-4.5 text-slate-600"></i>
+                                <i data-lucide="x" class="w-[18px] h-[18px] text-slate-600"></i>
                             </button>
                         </div>
 
@@ -343,6 +398,8 @@
     const inputEl = document.getElementById("messageInput");
     const formEl = document.getElementById("form");
     const sendBtn = document.getElementById("sendBtn");
+    const scrollBtn = document.getElementById("scrollBottomBtn");
+    const olderLoader = document.getElementById("olderLoader");
 
     const emojiBtn = document.getElementById("emojiBtn");
     const emojiPicker = document.getElementById("emojiPicker");
@@ -355,6 +412,254 @@
     let editingMessageId = null;
     let typingCooldown = false;
     let lastBaseStatus = subStatusEl.textContent || "yaqinda onlayn edi";
+
+
+    let loadingOlder = false;
+    let hasMoreOlder = true;
+
+    let loaderHideTimer = null;
+    let loaderShowTimer = null;
+    let loaderShownAt = 0;
+
+    const LOADER_DELAY_MS = 120;
+    const LOADER_MIN_MS = 250;
+
+    function showOlderLoader() {
+        loaderShownAt = 0;
+
+        if (loaderShowTimer) {
+            clearTimeout(loaderShowTimer);
+            loaderShowTimer = null;
+        }
+
+        loaderShowTimer = setTimeout(() => {
+            loaderShownAt = Date.now();
+            olderLoader.classList.remove("hidden");
+        }, LOADER_DELAY_MS);
+    }
+
+    function hideOlderLoader() {
+        loadingOlder = false;
+
+        if (loaderShowTimer) {
+            clearTimeout(loaderShowTimer);
+            loaderShowTimer = null;
+        }
+
+        if (loaderHideTimer) {
+            clearTimeout(loaderHideTimer);
+            loaderHideTimer = null;
+        }
+
+        if (!loaderShownAt) {
+            olderLoader.classList.add("hidden");
+            syncSepVisibility();
+            return;
+        }
+
+        const elapsed = Date.now() - loaderShownAt;
+        const wait = Math.max(0, LOADER_MIN_MS - elapsed);
+
+        loaderHideTimer = setTimeout(() => {
+            olderLoader.classList.add("hidden");
+            loaderShownAt = 0;
+            loaderHideTimer = null;
+            syncSepVisibility();
+        }, wait);
+    }
+
+    function getTopAnchor() {
+        const bubbles = Array.from(messagesEl.querySelectorAll(".bubble[data-id]"));
+        if (!bubbles.length) return null;
+
+        const boxTop = messagesEl.getBoundingClientRect().top;
+
+        let best = bubbles[0];
+        let bestDist = Infinity;
+
+        for (const b of bubbles) {
+            const dist = Math.abs(b.getBoundingClientRect().top - boxTop);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = b;
+            }
+        }
+
+        return {id: best.dataset.id, top: best.getBoundingClientRect().top};
+    }
+
+    function restoreTopAnchor(anchor) {
+        if (!anchor) return;
+        const bubble = messagesEl.querySelector(`.bubble[data-id="${anchor.id}"]`);
+        if (!bubble) return;
+
+        const newTop = bubble.getBoundingClientRect().top;
+        const diff = newTop - anchor.top;
+        messagesEl.scrollTop += diff;
+    }
+
+    function getOldestMessageId() {
+        const bubbles = messagesEl.querySelectorAll(".bubble[data-id]");
+        let min = null;
+        bubbles.forEach(b => {
+            const id = Number(b.dataset.id || 0);
+            if (!id) return;
+            if (min === null || id < min) min = id;
+        });
+        return min || 0;
+    }
+
+    function buildDateSepNode(label, key) {
+        const wrap = document.createElement("div");
+        wrap.dataset.sep = "1";
+        wrap.dataset.dateKey = key;
+        wrap.className = "flex justify-center py-2";
+        wrap.innerHTML = `
+          <div class="px-3 py-1 rounded-full text-[12px] font-semibold
+                      bg-white/80 border border-slate-200 text-slate-500 shadow-sm">
+            ${label}
+          </div>`;
+        return wrap;
+    }
+
+    function buildMessageNode(m) {
+        const isMe = Number(m.user_id) === ME_ID;
+
+        const row = document.createElement("div");
+        row.className = "msg-row " + (isMe ? "out" : "in");
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble " + (isMe ? "out" : "in");
+        if (m.id !== undefined && m.id !== null) bubble.dataset.id = String(m.id);
+
+        const k = dateKeyFromIso(m.created_at);
+        if (k) bubble.dataset.dateKey = k;
+
+        const text = document.createElement("div");
+        text.className = "bubble-text";
+        text.textContent = m.message || "";
+
+        const meta = document.createElement("div");
+        meta.className = "bubble-meta";
+
+        if (m.is_edited) {
+            const ed = document.createElement("span");
+            ed.className = "edited-label";
+            ed.textContent = "✎";
+            ed.style.opacity = "0.75";
+            meta.appendChild(ed);
+        }
+
+        const timeEl = document.createElement("span");
+        timeEl.textContent = formatTime(m.created_at);
+        meta.appendChild(timeEl);
+
+        if (isMe) meta.appendChild(makeTicks(!!m.is_read));
+
+        bubble.appendChild(text);
+        bubble.appendChild(meta);
+        row.appendChild(bubble);
+        return row;
+    }
+
+    function normalizeSeparators() {
+        const bubbles = Array.from(messagesEl.querySelectorAll(".bubble[data-id]"));
+        if (!bubbles.length) return;
+
+        const order = [];
+        const firstRowByKey = new Map();
+
+        for (const b of bubbles) {
+            const k = b.dataset.dateKey;
+            if (!k) continue;
+            if (!firstRowByKey.has(k)) {
+                firstRowByKey.set(k, b.closest(".msg-row"));
+                order.push(k);
+            }
+        }
+
+        const seen = new Set();
+        messagesEl.querySelectorAll('[data-sep="1"][data-date-key]').forEach(sep => {
+            const k = sep.dataset.dateKey;
+            if (!firstRowByKey.has(k) || seen.has(k)) {
+                sep.remove();
+            } else {
+                seen.add(k);
+            }
+        });
+
+        for (const k of order) {
+            const row = firstRowByKey.get(k);
+            if (!row) continue;
+            insertDateSeparator(k, row);
+        }
+    }
+
+    function prependBatch(msgs) {
+        if (!msgs || !msgs.length) return;
+
+        const anchor = getTopAnchor();
+
+        const frag = document.createDocumentFragment();
+
+        msgs.forEach(m => {
+            if (m.id && messagesEl.querySelector(`.bubble[data-id="${m.id}"]`)) return;
+            frag.appendChild(buildMessageNode(m));
+        });
+
+        messagesEl.insertBefore(frag, olderLoader.nextSibling);
+
+        normalizeSeparators();
+        restoreTopAnchor(anchor);
+    }
+
+    function isNearBottom() {
+        return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 80;
+    }
+
+    function updateScrollButton() {
+        if (isNearBottom()) {
+            scrollBtn.classList.add("hidden");
+        } else {
+            scrollBtn.classList.remove("hidden");
+        }
+    }
+
+    const HIDE_SEP_AT = 220;
+    const LOAD_TRIGGER = 120;
+
+    function syncSepVisibility() {
+        if (loadingOlder) messagesEl.classList.add("loading-older");
+        else messagesEl.classList.remove("loading-older");
+    }
+
+    messagesEl.addEventListener("scroll", () => {
+        updateScrollButton?.();
+        syncSepVisibility();
+
+        if (!hasMoreOlder) return;
+        if (loadingOlder) return;
+        if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+        if (messagesEl.scrollTop <= LOAD_TRIGGER) {
+            loadingOlder = true;
+            syncSepVisibility();
+            showOlderLoader();
+
+            socket.send(JSON.stringify({
+                type: "load_older",
+                before_id: getOldestMessageId(),
+                limit: 50
+            }));
+        }
+    });
+
+    scrollBtn.addEventListener("click", () => {
+        messagesEl.scrollTo({
+            top: messagesEl.scrollHeight,
+            behavior: "smooth"
+        });
+    });
 
     function setSubStatus(text) {
         subStatusEl.textContent = text;
@@ -391,7 +696,11 @@
     }
 
     function renderEmptyState() {
-        messagesEl.innerHTML = `
+        messagesEl.innerHTML = "";
+        messagesEl.appendChild(olderLoader);
+        olderLoader.classList.add("hidden");
+
+        messagesEl.insertAdjacentHTML("beforeend", `
         <div data-empty class="h-full flex items-center justify-center px-4">
             <div class="text-center max-w-xs w-full">
 
@@ -402,7 +711,7 @@
                 </div>
 
                 <div class="text-base font-semibold text-slate-700">
-                    Hali xabar yo‘q
+                    Hali xabar yo'q
                 </div>
 
                 <div class="text-sm text-slate-500 mt-1">
@@ -411,14 +720,81 @@
 
             </div>
         </div>
-    `;
+    `);
 
         lucide.createIcons();
+    }
+
+    function dateKeyFromIso(iso) {
+        if (!iso) return null;
+
+        const d = new Date(iso);
+        if (!isNaN(d.getTime())) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, "0");
+            const day = String(d.getDate()).padStart(2, "0");
+            return `${y}-${m}-${day}`;
+        }
+
+        const s = String(iso);
+        return s.length >= 10 ? s.slice(0, 10) : null;
+    }
+
+    function formatUzDayMonth(key) {
+        const [y, m, d] = key.split("-").map(Number);
+
+        const months = [
+            "yanvar", "fevral", "mart", "aprel", "may", "iyun",
+            "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"
+        ];
+
+        const month = months[(m - 1)] || "";
+        return `${d} - ${month}`;
+    }
+
+    function formatTime(iso) {
+        if (!iso) return "";
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        return d.toLocaleTimeString("uz-UZ", {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
+
+    function insertDateSeparator(key, beforeEl = null) {
+        if (!key) return null;
+
+        const exists = messagesEl.querySelector(`[data-sep="1"][data-date-key="${key}"]`);
+        if (exists) {
+            if (beforeEl && (beforeEl.compareDocumentPosition(exists) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+                messagesEl.insertBefore(exists, beforeEl);
+            }
+            return exists;
+        }
+
+        const label = formatUzDayMonth(key);
+        const wrap = document.createElement("div");
+        wrap.dataset.sep = "1";
+        wrap.dataset.dateKey = key;
+        wrap.className = "flex justify-center py-2";
+        wrap.innerHTML = `
+    <div class="px-3 py-1 rounded-full text-[12px] font-semibold
+                bg-white/80 border border-slate-200 text-slate-500 shadow-sm">
+      ${label}
+    </div>`;
+
+        if (beforeEl) messagesEl.insertBefore(wrap, beforeEl);
+        else messagesEl.appendChild(wrap);
+
+        return wrap;
     }
 
     function addMessage({id, message, created_at, user_id, is_read, is_edited}, isMe = false) {
         const empty = messagesEl.querySelector("[data-empty]");
         if (empty) empty.remove();
+
+        const key = dateKeyFromIso(created_at);
 
         const row = document.createElement("div");
         row.className = "msg-row " + (isMe ? "out" : "in");
@@ -426,6 +802,7 @@
         const bubble = document.createElement("div");
         bubble.className = "bubble " + (isMe ? "out" : "in");
         if (id !== undefined && id !== null) bubble.dataset.id = String(id);
+        if (key) bubble.dataset.dateKey = key;
 
         const text = document.createElement("div");
         text.className = "bubble-text";
@@ -443,7 +820,7 @@
         }
 
         const timeEl = document.createElement("span");
-        timeEl.textContent = created_at || "";
+        timeEl.textContent = formatTime(created_at);
         meta.appendChild(timeEl);
 
         if (isMe) meta.appendChild(makeTicks(!!is_read));
@@ -451,8 +828,16 @@
         bubble.appendChild(text);
         bubble.appendChild(meta);
         row.appendChild(bubble);
+
         messagesEl.appendChild(row);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        if (key) insertDateSeparator(key, row);
+
+        if (isNearBottom()) {
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        } else {
+            updateScrollButton();
+        }
     }
 
     function setTicksReadUpTo(upToId) {
@@ -486,10 +871,16 @@
         socket.onclose = () => {
             sendBtn.disabled = true;
             lastBaseStatus = "yaqinda onlayn edi";
+            loadingOlder = false;
+
+            hideOlderLoader();
             setSubStatus(lastBaseStatus);
         };
         socket.onerror = () => {
             sendBtn.disabled = true;
+            loadingOlder = false;
+
+            hideOlderLoader();
             setSubStatus("Ulanmoqda...");
         };
 
@@ -498,17 +889,39 @@
 
             if (data.history) {
                 messagesEl.innerHTML = "";
+                messagesEl.appendChild(olderLoader);
+                olderLoader.classList.add("hidden");
 
                 if (!data.messages || !data.messages.length) {
                     renderEmptyState();
                     return;
                 }
 
-                data.messages.forEach(m =>
-                    addMessage(m, Number(m.user_id) === ME_ID)
-                );
+                const msgs = (data.messages || []).slice().sort((a, b) => {
+                    const ta = Date.parse(a.created_at || "") || 0;
+                    const tb = Date.parse(b.created_at || "") || 0;
+                    if (ta !== tb) return ta - tb;
+                    return (Number(a.id) || 0) - (Number(b.id) || 0);
+                });
+
+                const frag = document.createDocumentFragment();
+                let lastKey = null;
+
+                msgs.forEach(m => {
+                    const key = dateKeyFromIso(m.created_at);
+                    if (key && key !== lastKey) {
+                        frag.appendChild(buildDateSepNode(formatUzDayMonth(key), key));
+                        lastKey = key;
+                    }
+                    frag.appendChild(buildMessageNode(m));
+                });
+
+                messagesEl.appendChild(frag);
+                normalizeSeparators();
+                messagesEl.scrollTop = messagesEl.scrollHeight;
 
                 setSubStatus(lastBaseStatus);
+                updateScrollButton();
                 return;
             }
 
@@ -578,6 +991,25 @@
                 return;
             }
 
+            if (data.type === "older_messages") {
+                const msgs = (data.messages || []).slice().sort((a, b) => {
+                    const ta = Date.parse(a.created_at || "") || 0;
+                    const tb = Date.parse(b.created_at || "") || 0;
+                    if (ta !== tb) return ta - tb;
+                    return (Number(a.id) || 0) - (Number(b.id) || 0);
+                });
+
+                if (!msgs.length) {
+                    hasMoreOlder = false;
+                } else {
+                    prependBatch(msgs);
+                }
+
+                loadingOlder = false;
+                hideOlderLoader();
+                return;
+            }
+
             if (data.message) addMessage(data, Number(data.user_id) === ME_ID);
         };
     }
@@ -628,7 +1060,23 @@
         inputEl.value = "";
         autoGrowTextarea();
         inputEl.focus();
+
+        scrollToBottomSmooth();
     });
+
+    function scrollToBottomSmooth() {
+        messagesEl.scrollTo({top: messagesEl.scrollHeight, behavior: "smooth"});
+
+        requestAnimationFrame(() => {
+            messagesEl.scrollTo({top: messagesEl.scrollHeight, behavior: "smooth"});
+        });
+
+        setTimeout(() => {
+            messagesEl.scrollTo({top: messagesEl.scrollHeight, behavior: "smooth"});
+        }, 80);
+
+        scrollBtn.classList.add("hidden");
+    }
 
     const EMOJIS = {
         faces: [
@@ -707,7 +1155,7 @@
     <div class="ctx-sep"></div>
     <button type="button" class="ctx-item danger" data-action="delete">
       <i data-lucide="trash-2" class="w-4 h-4"></i>
-      <span>O‘chirish</span>
+      <span>O'chirish</span>
     </button>
   `;
     document.body.appendChild(ctxMenu);
@@ -888,6 +1336,8 @@
     }
 
     connectWs();
+    syncSepVisibility();
+    updateScrollButton();
 </script>
 <script>
     document.addEventListener('contextmenu', (e) => e.preventDefault());
