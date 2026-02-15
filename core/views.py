@@ -1,5 +1,6 @@
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -8,7 +9,8 @@ from django.db.models.functions import Coalesce
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
 
-from core.models import Message
+from .models import Message
+from .mixins import LoginNoRequiredMixin
 
 User = get_user_model()
 
@@ -19,7 +21,7 @@ def display_name(u):
 
 class ChatListView(LoginRequiredMixin, ListView):
     model = User
-    template_name = "chat_list.html"
+    template_name = "chat-list.html"
     context_object_name = "users"
 
     def get_queryset(self):
@@ -96,7 +98,7 @@ class SearchUsersView(LoginRequiredMixin, View):
 
 
 class PrivateChatView(LoginRequiredMixin, TemplateView):
-    template_name = "chat.html"
+    template_name = "chat-room.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -121,5 +123,37 @@ class PrivateChatView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class LoginPageView(TemplateView):
+class HomePageView(LoginNoRequiredMixin, TemplateView):
+    template_name = "index.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['year'] = timezone.now().year
+
+        return context
+
+
+class LoginPageView(LoginNoRequiredMixin, TemplateView):
     template_name = "registration/login.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['year'] = timezone.now().year
+
+        return context
+
+
+class TermsPageView(TemplateView):
+    template_name = "registration/terms.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['updated_at'] = timezone.now()
+
+        return context
+
+class Custom404PageView(TemplateView):
+    template_name = "404.html"

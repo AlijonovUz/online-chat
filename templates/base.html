@@ -1,0 +1,34 @@
+{% load static %}
+
+<!doctype html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <title>
+        {% block title %}
+        BirGap
+        {% endblock %}
+    </title>
+
+    <link href="{% static 'images/favicon.png' %}" rel="icon">
+    {% block head %}
+    {% endblock %}
+</head>
+
+<body class="{% block body_class %}bg-white text-slate-900 select-none{% endblock %}">
+
+{% block body %}
+{% endblock %}
+
+{% block scripts %}
+{% endblock %}
+<script defer src="{% static 'js/devtools-blocker.js' %}"></script>
+<script>
+
+</script>
+</body>
+</html>

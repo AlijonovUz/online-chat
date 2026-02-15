@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+Chatlar — BirGap
+{% endblock %}
+
+{% block head %}
+<link href="{% static 'css/chat-list.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block body %}
+<div id="page-loader"
+     class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-100 transition-opacity duration-300">
+    <div class="flex flex-col items-center gap-4">
+        <div class="relative">
+            <div class="w-14 h-14 rounded-2xl bg-slate-900 flex items-center justify-center">
+                <i data-lucide="messages-square" class="w-7 h-7 text-white"></i>
+            </div>
+            <span class="absolute inset-0 rounded-2xl animate-ping bg-slate-900/30"></span>
+        </div>
+
+        <span class="text-sm font-medium text-slate-600 tracking-wide">
+      Yuklanmoqda…
+    </span>
+    </div>
+</div>
+
+<div class="min-h-screen">
+    <div class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200">
+        <div class="mx-auto max-w-5xl px-4 sm:px-6 py-4">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-sm">
+                        <i data-lucide="messages-square" class="w-5 h-5"></i>
+                    </div>
+                    <div class="leading-tight">
+                        <div class="text-xl font-semibold tracking-tight text-slate-900">
+                            BirGap
+                        </div>
+
+                        <div class="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                            <span class="font-medium text-slate-600 truncate">
+                                {{ user.get_full_name }}
+                            </span>
+
+                            {% if user.is_verified %}
+                            <svg class="w-[13px] h-[13px] shrink-0"
+                                 viewBox="0 0 24 24"
+                                 fill="none">
+                                <circle cx="12" cy="12" r="10" fill="#3390EC"/>
+                                <path d="M8 12.5L10.2 14.7L16 9"
+                                      stroke="white"
+                                      stroke-width="2"
+                                      stroke-linecap="round"
+                                      stroke-linejoin="round"/>
+                            </svg>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button
+                            type="button"
+                            onclick="location.reload()"
+                            class="h-11 w-11 rounded-2xl border border-slate-200 hover:bg-slate-50 flex items-center justify-center transition active:scale-[0.98]"
+                    >
+                        <i data-lucide="refresh-ccw" class="w-5 h-5 text-slate-700"></i>
+                    </button>
+
+                    <button
+                            type="button"
+                            id="profileBtn"
+                            class="h-11 px-4 rounded-2xl border border-slate-200 hover:bg-slate-50
+                             flex items-center gap-2 transition active:scale-[0.98]"
+                    >
+                        <i data-lucide="user" class="w-5 h-5 text-slate-700"></i>
+                        <span class="text-sm font-semibold text-slate-700 hidden sm:inline">Profil</span>
+                    </button>
+
+                    <form method="post" action="/accounts/logout/">
+                        {% csrf_token %}
+                        <button
+                                type="submit"
+                                class="h-11 w-11 rounded-2xl border border-slate-200 hover:bg-slate-50 flex items-center justify-center transition active:scale-[0.98]"
+                        >
+                            <i data-lucide="log-out" class="w-5 h-5 text-slate-700"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <i data-lucide="search" class="w-5 h-5"></i>
+                  </span>
+
+                    <input
+                            id="search"
+                            class="w-full pl-10 pr-12 py-3.5 rounded-2xl bg-slate-50 border border-slate-200
+                   focus:outline-none focus:ring-4 focus:ring-slate-900/10 focus:border-slate-300 transition"
+                            placeholder="Qidirish..."
+                            autocomplete="off"
+                    />
+
+                    <button
+                            id="clearSearch"
+                            type="button"
+                            class="hidden absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl
+                   hover:bg-white border border-transparent hover:border-slate-200 text-slate-600
+                   flex items-center justify-center transition"
+                    >
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                    <div id="searchBox"
+                         class="hidden absolute z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                        <div id="searchResults" class="max-h-80 overflow-auto soft-scroll"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mx-auto max-w-5xl px-4 sm:px-6 py-3">
+        <div id="list" class="soft-scroll space-y-2">
+            {% for u in users %}
+            <a
+                    href="{% url 'private-chat' u.username %}"
+                    class="user-row group flex items-center gap-4 px-3 py-3 rounded-2xl border border-slate-200/70 bg-white
+               hover:bg-slate-50 hover:border-slate-300 transition
+               {% if u.unread %} ring-1 ring-slate-900/5 {% endif %}"
+                    data-name="{{ u.name|lower }} {{ u.username|lower }}"
+                    data-online="{% if u.online %}1{% else %}0{% endif %}"
+                    data-unread="{% if u.unread %}{{ u.unread }}{% else %}0{% endif %}"
+            >
+                <div class="relative shrink-0">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center
+                      group-hover:border-slate-300 transition">
+            <span class="text-slate-800 font-semibold">
+              {{ u.name|slice:":1"|upper }}
+            </span>
+                    </div>
+
+                    {% if u.online %}
+                    <span class="absolute -bottom-1 -right-1 w-4.5 h-4.5 bg-emerald-500 border-[3px] border-white rounded-full"></span>
+                    {% endif %}
+                </div>
+
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <div class="flex items-center gap-1 min-w-0">
+                                    <div class="truncate text-[15px] leading-5 {% if u.unread %}font-semibold text-slate-900{% else %}font-medium text-slate-700{% endif %}">
+                                        {{ u.name }}
+                                    </div>
+
+                                    {% if u.is_verified %}
+                                    <svg class="w-[14px] h-[14px] shrink-0 block" viewBox="0 0 24 24" fill="none"
+                                         aria-hidden="true">
+                                        <circle cx="12" cy="12" r="10" fill="#3390EC"/>
+                                        <path d="M8 12.5L10.2 14.7L16 9" stroke="white" stroke-width="2"
+                                              stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    {% endif %}
+                                </div>
+
+                                {% if u.online %}
+                                <span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold
+                             bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                  onlayn
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <div class="mt-0.5 text-sm text-slate-500 truncate">@{{ u.username }}</div>
+
+                            {% if u.last_message %}
+                            <div class="mt-1 text-sm text-slate-600 truncate">
+                                {{ u.last_message }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="shrink-0 flex items-center gap-2 pt-0.5">
+                            {% if u.unread %}
+                            <span class="min-w-[26px] h-[26px] px-2 rounded-full bg-slate-900 text-white text-xs font-semibold
+                           inline-flex items-center justify-center">
+                {{ u.unread }}
+              </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </a>
+            {% empty %}
+            <div class="min-h-[60vh] flex items-center justify-center px-4">
+                <div class="text-center max-w-sm w-full">
+
+                    <div class="mx-auto w-20 h-20 rounded-3xl bg-slate-100 border border-slate-200 flex items-center justify-center mb-6 shadow-sm transition hover:scale-105">
+                        <i data-lucide="message-circle" class="w-8 h-8 text-slate-500"></i>
+                    </div>
+
+                    <div class="text-lg font-semibold text-slate-800">
+                        Hozircha chatlar yo‘q
+                    </div>
+
+                    <div class="text-sm text-slate-500 mt-2 leading-relaxed">
+                        Qidiruvdan foydalanuvchi toping va suhbatni boshlang.
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div id="profileModal" class="hidden fixed inset-0 z-[60]">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+    <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-md rounded-3xl bg-white border border-slate-200 shadow-xl overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+                        <i data-lucide="id-card" class="w-5 h-5 text-slate-700"></i>
+                    </div>
+                    <div>
+                        <div class="font-semibold text-slate-900">Profil</div>
+                        <div class="text-xs text-slate-500">Akkaunt ma’lumotlari</div>
+                    </div>
+                </div>
+
+                <button id="profileClose"
+                        class="w-10 h-10 rounded-2xl hover:bg-slate-50 flex items-center justify-center">
+                    <i data-lucide="x" class="w-5 h-5 text-slate-700"></i>
+                </button>
+            </div>
+
+            <div class="p-5">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-3xl bg-slate-900 text-white flex items-center justify-center text-xl font-bold">
+                        {{ user.first_name|slice:":1"|upper }}
+                    </div>
+
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <div class="text-lg font-semibold text-slate-900 truncate">
+                                {{ user.get_full_name }}
+                            </div>
+
+                            {% if user.is_verified %}
+                            <svg class="w-[16px] h-[16px] shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="12" cy="12" r="10" fill="#3390EC"/>
+                                <path d="M8 12.5L10.2 14.7L16 9" stroke="white" stroke-width="2" stroke-linecap="round"
+                                      stroke-linejoin="round"/>
+                            </svg>
+                            {% endif %}
+                        </div>
+
+                        <div class="text-sm text-slate-500 truncate">
+                            @{{ user.username }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-5 space-y-3">
+                    <div class="flex items-center justify-between gap-4 px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200">
+                        <div class="text-sm text-slate-600 flex items-center gap-2">
+                            <i data-lucide="at-sign" class="w-4 h-4"></i> Foydalanuvchi nomi
+                        </div>
+                        <div class="text-sm font-semibold text-slate-900 truncate">@{{ user.username }}</div>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-4 px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200">
+                        <div class="text-sm text-slate-600 flex items-center gap-2">
+                            <i data-lucide="mail" class="w-4 h-4"></i> Elektron pochta
+                        </div>
+                        <div class="text-sm font-semibold text-slate-900 truncate">
+                            {{ user.email|default:"Topilmadi." }}
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-4 px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200">
+                        <div class="text-sm text-slate-600 flex items-center gap-2">
+                            <i data-lucide="badge-check" class="w-4 h-4"></i> Tasdiqlangan
+                        </div>
+                        <div class="text-sm font-semibold">
+                            {% if user.is_verified %}
+                            <span class="text-emerald-700">Ha</span>
+                            {% else %}
+                            <span class="text-slate-600">Yo‘q</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-5 flex gap-2">
+                    <button id="profileOk"
+                            class="flex-1 h-11 rounded-2xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition active:scale-[0.98]">
+                        Tushunarli
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script defer src="{% static 'js/chat-list.js' %}"></script>
+<script>
+    window.addEventListener("load", () => {
+        const loader = document.getElementById("page-loader");
+        loader.classList.add("opacity-0", "pointer-events-none");
+        setTimeout(() => loader.remove(), 500);
+    });
+</script>
+{% endblock %}
