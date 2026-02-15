@@ -59,7 +59,7 @@
         .bubble {
             position: relative;
             width: fit-content;
-            max-width: min(78%, 62ch);
+            max-width: min(82%, 72ch);
             padding: 10px 14px 22px 14px;
             border-radius: 20px;
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
@@ -83,7 +83,7 @@
             line-height: 1.45;
             white-space: pre-wrap;
             overflow-wrap: anywhere;
-            padding-right: 62px;
+            padding-right: 48px;
         }
 
         .bubble-meta {
@@ -235,6 +235,28 @@
             50% {
                 transform: translateY(-3px);
                 opacity: .9;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .bubble {
+                max-width: 88%;
+                padding: 10px 12px 22px 12px;
+            }
+
+            .bubble-text {
+                padding-right: 40px;
+            }
+
+            .bubble-meta {
+                right: 8px;
+                bottom: 6px;
+                font-size: 10px;
+                gap: 5px;
+            }
+
+            .ticks {
+                width: 20px;
             }
         }
     </style>
