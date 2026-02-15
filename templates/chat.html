@@ -654,6 +654,20 @@
         }
     });
 
+    function scrollToBottomSmooth() {
+        messagesEl.scrollTo({top: messagesEl.scrollHeight, behavior: "smooth"});
+
+        requestAnimationFrame(() => {
+            messagesEl.scrollTo({top: messagesEl.scrollHeight, behavior: "smooth"});
+        });
+
+        setTimeout(() => {
+            messagesEl.scrollTo({top: messagesEl.scrollHeight, behavior: "smooth"});
+        }, 80);
+
+        scrollBtn.classList.add("hidden");
+    }
+
     scrollBtn.addEventListener("click", () => {
         messagesEl.scrollTo({
             top: messagesEl.scrollHeight,
@@ -833,11 +847,7 @@
 
         if (key) insertDateSeparator(key, row);
 
-        if (isNearBottom()) {
-            messagesEl.scrollTop = messagesEl.scrollHeight;
-        } else {
-            updateScrollButton();
-        }
+        updateScrollButton();
     }
 
     function setTicksReadUpTo(upToId) {
@@ -1010,7 +1020,17 @@
                 return;
             }
 
-            if (data.message) addMessage(data, Number(data.user_id) === ME_ID);
+            if (data.message) {
+                const isMe = Number(data.user_id) === ME_ID;
+
+                const shouldScroll = isMe || isNearBottom();
+
+                addMessage(data, isMe);
+
+                if (shouldScroll) scrollToBottomSmooth();
+
+                return;
+            }
         };
     }
 
@@ -1060,23 +1080,7 @@
         inputEl.value = "";
         autoGrowTextarea();
         inputEl.focus();
-
-        scrollToBottomSmooth();
     });
-
-    function scrollToBottomSmooth() {
-        messagesEl.scrollTo({top: messagesEl.scrollHeight, behavior: "smooth"});
-
-        requestAnimationFrame(() => {
-            messagesEl.scrollTo({top: messagesEl.scrollHeight, behavior: "smooth"});
-        });
-
-        setTimeout(() => {
-            messagesEl.scrollTo({top: messagesEl.scrollHeight, behavior: "smooth"});
-        }, 80);
-
-        scrollBtn.classList.add("hidden");
-    }
 
     const EMOJIS = {
         faces: [
