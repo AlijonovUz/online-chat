@@ -213,6 +213,46 @@ html, body {
     visibility: hidden;
 }
 
+.bubble.out .reply-preview {
+  border-left-color: rgba(96, 165, 250, .95);
+}
+
+.bubble.out .reply-preview .r-name {
+  color: rgba(96, 165, 250, .95);
+}
+
+.bubble.out .reply-preview .r-text {
+  color: rgba(255, 255, 255, .82);
+}
+
+.reply-preview {
+  border-left: 3px solid #3390EC;
+  padding-left: 10px;
+  margin-bottom: 8px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.reply-preview .r-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3390EC;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reply-preview .r-text {
+  font-size: 12px;
+  line-height: 1.2;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 100%;
+}
+
 @keyframes ld {
     0%, 100% {
         transform: translateY(0);

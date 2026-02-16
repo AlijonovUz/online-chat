@@ -9,6 +9,7 @@ class User(AbstractUser):
 class Message(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sent_messages")
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name="received_messages")
+    reply_to = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="replies")
     text = models.TextField()
     is_read = models.BooleanField(default=False)
     is_edited = models.BooleanField(default=False)

@@ -17,6 +17,17 @@ class MessageConsumer(AsyncWebsocketConsumer):
         self.me = self.scope['user']
         self.receiver_id = int(self.scope['url_route']['kwargs']['receiver_id'])
 
+        if self.receiver_id == self.me.id:
+            await self.close()
+            return
+
+        receiver = await self.get_user(self.receiver_id)
+        if not receiver:
+            await self.close()
+            return
+
+        self.receiver = receiver
+
         a, b = sorted([self.me.id, self.receiver_id])
         self.chat_key = f"pm_{a}_{b}"
         self.group_name = f"chat_{self.chat_key}"
@@ -50,28 +61,37 @@ class MessageConsumer(AsyncWebsocketConsumer):
         )
 
     async def disconnect(self, code):
-        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        if hasattr(self, "group_name"):
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
-        cache.delete(f"active:{self.chat_key}:{self.me.id}")
-        cache.delete(self.online_key(self.me.id))
+        if hasattr(self, "chat_key") and hasattr(self, "me"):
+            cache.delete(f"active:{self.chat_key}:{self.me.id}")
+            cache.delete(self.online_key(self.me.id))
 
-        cache.set(
-            self.last_seen_key(self.me.id),
-            timezone.now().isoformat(),
-            timeout=60 * 60 * 24 * 7,
-        )
+            cache.set(
+                self.last_seen_key(self.me.id),
+                timezone.now().isoformat(),
+                timeout=60 * 60 * 24 * 7,
+            )
 
-        await self.channel_layer.group_send(
-            self.group_name,
-            {
-                "type": "presence_event",
-                "status": "yaqinda onlayn edi",
-                "user_id": self.me.id,
-            }
-        )
+            if hasattr(self, "group_name"):
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "presence_event",
+                        "status": "yaqinda onlayn edi",
+                        "user_id": self.me.id,
+                    }
+                )
 
     async def receive(self, text_data=None, bytes_data=None):
-        data = json.loads(text_data)
+        if not hasattr(self, "group_name"):
+            return
+
+        try:
+            data = json.loads(text_data or "{}")
+        except json.JSONDecodeError:
+            return
 
         if data.get('typing'):
             await self.channel_layer.group_send(
@@ -135,12 +155,26 @@ class MessageConsumer(AsyncWebsocketConsumer):
             }))
             return
 
-        text = data.get('message', "").strip()
+        reply_to_id = data.get("reply_to_id")
+        try:
+            reply_to_id = int(reply_to_id) if reply_to_id else None
+        except (TypeError, ValueError):
+            reply_to_id = None
+
+        MAX_MESSAGE_LENGTH = 4096
+
+        text = (data.get("message") or "").strip()
         if not text:
             return
 
-        receiver = await self.get_user(self.receiver_id)
-        msg_obj = await self.save_message(self.me, receiver, text)
+        if len(text) > MAX_MESSAGE_LENGTH:
+            text = text[:MAX_MESSAGE_LENGTH]
+
+        receiver = getattr(self, "receiver", None)
+        if not receiver:
+            return
+
+        msg_obj = await self.save_message(self.me, receiver, text, reply_to_id)
 
         await self.channel_layer.group_send(
             self.group_name,
@@ -153,6 +187,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
                 "is_read": msg_obj['is_read'],
                 "is_edited": msg_obj["is_edited"],
                 "created_at": msg_obj['created_at'],
+                "reply_to": msg_obj["reply_to"],
             }
         )
 
@@ -209,11 +244,25 @@ class MessageConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def get_user(self, user_id: int):
-        return User.objects.get(id=user_id)
+        return User.objects.filter(id=user_id).first()
 
     @sync_to_async
-    def save_message(self, sender, receiver, text: str):
-        message = Message.objects.create(sender=sender, receiver=receiver, text=text)
+    def save_message(self, sender, receiver, text: str, reply_to_id: int | None):
+        reply_obj = None
+
+        if reply_to_id:
+            reply_obj = Message.objects.select_related('sender').filter(
+                id=reply_to_id,
+                sender_id__in=[sender.id, receiver.id],
+                receiver_id__in=[sender.id, receiver.id]
+            ).first()
+
+        message = Message.objects.create(
+            sender=sender,
+            receiver=receiver,
+            text=text,
+            reply_to=reply_obj
+        )
 
         return {
             "id": message.id,
@@ -222,6 +271,14 @@ class MessageConsumer(AsyncWebsocketConsumer):
             "is_read": message.is_read,
             "is_edited": message.is_edited,
             "created_at": timezone.localtime(message.created_at).isoformat(),
+            "reply_to": (
+                {
+                    "id": reply_obj.id,
+                    "text": reply_obj.text,
+                    "user": self.display_name(reply_obj.sender),
+                    "user_id": reply_obj.sender_id,
+                } if reply_obj else None
+            )
         }
 
     @sync_to_async
@@ -230,6 +287,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
             sender_id__in=[self.me.id, self.receiver_id],
             receiver_id__in=[self.me.id, self.receiver_id],
         ).order_by("-created_at")[:50]
+        qs = qs.select_related("sender", "reply_to", "reply_to__sender")
         qs = list(reversed(qs))
 
         return [
@@ -241,6 +299,14 @@ class MessageConsumer(AsyncWebsocketConsumer):
                 "is_read": m.is_read,
                 "is_edited": m.is_edited,
                 "created_at": timezone.localtime(m.created_at).isoformat(),
+                "reply_to": (
+                    {
+                        "id": m.reply_to_id,
+                        "text": m.reply_to.text,
+                        "user": self.display_name(m.reply_to.sender),
+                        "user_id": m.reply_to.sender_id,
+                    } if m.reply_to_id else None
+                ),
             }
             for m in qs
         ]
@@ -251,6 +317,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
             sender_id__in=[self.me.id, self.receiver_id],
             receiver_id__in=[self.me.id, self.receiver_id],
         ).order_by("-id")
+        qs = qs.select_related("sender", "reply_to", "reply_to__sender")
 
         if before_id:
             qs = qs.filter(id__lt=before_id)
@@ -267,6 +334,14 @@ class MessageConsumer(AsyncWebsocketConsumer):
                 "is_read": m.is_read,
                 "is_edited": m.is_edited,
                 "created_at": timezone.localtime(m.created_at).isoformat(),
+                "reply_to": (
+                    {
+                        "id": m.reply_to_id,
+                        "text": m.reply_to.text,
+                        "user": self.display_name(m.reply_to.sender),
+                        "user_id": m.reply_to.sender_id,
+                    } if m.reply_to_id else None
+                ),
             }
             for m in qs
         ]

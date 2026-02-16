@@ -154,6 +154,3 @@ class TermsPageView(TemplateView):
         context['updated_at'] = timezone.now()
 
         return context
-
-class Custom404PageView(TemplateView):
-    template_name = "404.html"

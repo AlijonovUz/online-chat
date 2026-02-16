@@ -17,6 +17,13 @@ const emojiGrid = document.getElementById("emojiGrid");
 const emojiCloseBtn = document.getElementById("emojiCloseBtn");
 const emojiTabs = Array.from(document.querySelectorAll(".emojiTab"));
 
+const replyBar = document.getElementById("replyBar");
+const replyNameEl = document.getElementById("replyName");
+const replyTextEl = document.getElementById("replyText");
+const replyCloseBtn = document.getElementById("replyCloseBtn");
+
+let replyToId = null;
+
 let socket = null;
 let typingTimer = null;
 let editingMessageId = null;
@@ -140,10 +147,29 @@ function buildMessageNode(m) {
 
     const bubble = document.createElement("div");
     bubble.className = "bubble " + (isMe ? "out" : "in");
+
     if (m.id !== undefined && m.id !== null) bubble.dataset.id = String(m.id);
 
     const k = dateKeyFromIso(m.created_at);
     if (k) bubble.dataset.dateKey = k;
+
+    if (m.reply_to && m.reply_to.id) {
+        const rp = document.createElement("div");
+        rp.className = "reply-preview";
+        rp.dataset.replyId = String(m.reply_to.id);
+
+        rp.innerHTML = `<div class="r-name"></div><div class="r-text"></div>`;
+        rp.querySelector(".r-name").textContent = m.reply_to.user || "Foydalanuvchi";
+        rp.querySelector(".r-text").textContent = smartReplyText(m.reply_to.text, m.message);
+
+        rp.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            const target = messagesEl.querySelector(`.bubble[data-id="${m.reply_to.id}"]`);
+            if (target) target.scrollIntoView({behavior: "smooth", block: "center"});
+        });
+
+        bubble.appendChild(rp);
+    }
 
     const text = document.createElement("div");
     text.className = "bubble-text";
@@ -235,7 +261,6 @@ function updateScrollButton() {
     }
 }
 
-const HIDE_SEP_AT = 220;
 const LOAD_TRIGGER = 120;
 
 function syncSepVisibility() {
@@ -405,7 +430,7 @@ function insertDateSeparator(key, beforeEl = null) {
     return wrap;
 }
 
-function addMessage({id, message, created_at, user_id, is_read, is_edited}, isMe = false) {
+function addMessage({id, message, created_at, user_id, is_read, is_edited, reply_to}, isMe = false) {
     const empty = messagesEl.querySelector("[data-empty]");
     if (empty) empty.remove();
 
@@ -418,6 +443,24 @@ function addMessage({id, message, created_at, user_id, is_read, is_edited}, isMe
     bubble.className = "bubble " + (isMe ? "out" : "in");
     if (id !== undefined && id !== null) bubble.dataset.id = String(id);
     if (key) bubble.dataset.dateKey = key;
+
+    if (reply_to && reply_to.id) {
+        const rp = document.createElement("div");
+        rp.className = "reply-preview";
+        rp.dataset.replyId = String(reply_to.id);
+
+        rp.innerHTML = `<div class="r-name"></div><div class="r-text"></div>`;
+        rp.querySelector(".r-name").textContent = reply_to.user || "Foydalanuvchi";
+        rp.querySelector(".r-text").textContent = smartReplyText(reply_to.text, message);
+
+        rp.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            const target = messagesEl.querySelector(`.bubble[data-id="${reply_to.id}"]`);
+            if (target) target.scrollIntoView({behavior: "smooth", block: "center"});
+        });
+
+        bubble.appendChild(rp);
+    }
 
     const text = document.createElement("div");
     text.className = "bubble-text";
@@ -562,31 +605,38 @@ function connectWs() {
             const mid = Number(data.message_id || 0);
             if (!mid) return;
 
+            const newText = data.message || "";
+
             const bubble = document.querySelector(`.bubble[data-id="${mid}"]`);
-            if (!bubble) return;
+            if (bubble) {
+                const textEl = bubble.querySelector(".bubble-text");
+                if (textEl) textEl.textContent = newText;
 
-            const textEl = bubble.querySelector(".bubble-text");
-            if (textEl) textEl.textContent = data.message || "";
+                const meta = bubble.querySelector(".bubble-meta");
+                if (meta) {
+                    let ed = meta.querySelector(".edited-label");
+                    if (!ed) {
+                        ed = document.createElement("span");
+                        ed.className = "edited-label";
+                        ed.style.opacity = "0.75";
+                    }
+                    ed.textContent = "✎";
 
-            const meta = bubble.querySelector(".bubble-meta");
-            if (meta) {
-                let ed = meta.querySelector(".edited-label");
-
-                if (!ed) {
-                    ed = document.createElement("span");
-                    ed.className = "edited-label";
-                    ed.style.opacity = "0.75";
-                }
-
-                ed.textContent = "✎";
-
-                const timeEl = meta.querySelector("span");
-                if (timeEl) {
-                    meta.insertBefore(ed, timeEl);
-                } else {
-                    meta.prepend(ed);
+                    const timeEl = meta.querySelector("span");
+                    if (timeEl) meta.insertBefore(ed, timeEl);
+                    else meta.prepend(ed);
                 }
             }
+
+            document.querySelectorAll(`.reply-preview[data-reply-id="${mid}"]`).forEach(rp => {
+                const rText = rp.querySelector(".r-text");
+                if (!rText) return;
+
+                const parentBubble = rp.closest(".bubble");
+                const childText = parentBubble?.querySelector(".bubble-text")?.textContent || "";
+
+                rText.textContent = smartReplyText(newText, childText);
+            });
 
             return;
         }
@@ -595,9 +645,17 @@ function connectWs() {
             const mid = Number(data.message_id || 0);
             if (!mid) return;
 
+            document
+                .querySelectorAll(`.reply-preview[data-reply-id="${mid}"]`)
+                .forEach(rp => rp.remove());
+
             const bubble = document.querySelector(`.bubble[data-id="${mid}"]`);
             const row = bubble ? bubble.closest(".msg-row") : null;
             if (row) row.remove();
+
+            if (replyToId && Number(replyToId) === mid) {
+                closeReply?.();
+            }
 
             return;
         }
@@ -673,7 +731,10 @@ formEl.addEventListener("submit", (e) => {
         editingMessageId = null;
         inputEl.classList.remove("ring-2", "ring-blue-500");
     } else {
-        socket.send(JSON.stringify({message: msg}));
+        socket.send(JSON.stringify({
+            message: msg, reply_to_id: replyToId || null
+        }));
+        closeReply();
     }
 
     inputEl.value = "";
@@ -733,21 +794,33 @@ document.addEventListener("click", (e) => {
 const ctxMenu = document.createElement("div");
 ctxMenu.className = "ctx-menu";
 ctxMenu.innerHTML = `
-        <button type="button" class="ctx-item" data-action="copy">
-          <i data-lucide="copy" class="w-4 h-4"></i>
-          <span>Nusxalash</span>
-        </button>
-        <div class="ctx-sep"></div>
-        <button type="button" class="ctx-item" data-action="edit">
-          <i data-lucide="edit-3" class="w-4 h-4"></i>
-          <span>Tahrirlash</span>
-        </button>
-        <div class="ctx-sep"></div>
-        <button type="button" class="ctx-item danger" data-action="delete">
-          <i data-lucide="trash-2" class="w-4 h-4"></i>
-          <span>O'chirish</span>
-        </button>
-      `;
+  <button type="button" class="ctx-item" data-action="reply">
+    <i data-lucide="corner-up-left" class="w-4 h-4"></i>
+    <span>Javob berish</span>
+  </button>
+
+  <div class="ctx-sep" data-sep="always"></div>
+
+  <button type="button" class="ctx-item" data-action="copy">
+    <i data-lucide="copy" class="w-4 h-4"></i>
+    <span>Nusxalash</span>
+  </button>
+
+  <div class="ctx-sep" data-sep="mine"></div>
+
+  <button type="button" class="ctx-item" data-action="edit">
+    <i data-lucide="edit-3" class="w-4 h-4"></i>
+    <span>Tahrirlash</span>
+  </button>
+
+  <div class="ctx-sep" data-sep="mine"></div>
+
+  <button type="button" class="ctx-item danger" data-action="delete">
+    <i data-lucide="trash-2" class="w-4 h-4"></i>
+    <span>O'chirish</span>
+  </button>
+`;
+
 document.body.appendChild(ctxMenu);
 lucide?.createIcons?.();
 
@@ -777,8 +850,11 @@ function showCtxMenu(x, y, bubble) {
 
     const seps = ctxMenu.querySelectorAll(".ctx-sep");
 
-    if (seps[0]) seps[0].style.display = mine ? "block" : "none";
+    if (seps[0]) seps[0].style.display = "block";
+
     if (seps[1]) seps[1].style.display = mine ? "block" : "none";
+
+    if (seps[2]) seps[2].style.display = mine ? "block" : "none";
 
     ctxMenu.style.display = "block";
 
@@ -824,6 +900,18 @@ ctxMenu.addEventListener("click", async (e) => {
     const text = ctxTargetBubble.querySelector(".bubble-text")?.textContent || "";
     const messageId = Number(ctxTargetBubble.dataset.id || 0);
 
+    if (action === "reply") {
+        const messageId = Number(ctxTargetBubble.dataset.id || 0);
+        if (!messageId) return;
+
+        const user = ctxTargetBubble.classList.contains("out") ? "Siz" : (document.querySelector("h1")?.textContent?.trim() || "Foydalanuvchi");
+        const text = ctxTargetBubble.querySelector(".bubble-text")?.textContent || "";
+
+        openReply({id: messageId, user, text});
+        hideCtxMenu();
+        return;
+    }
+
     if (action === "copy") {
         await copyText(text);
         hideCtxMenu();
@@ -834,6 +922,9 @@ ctxMenu.addEventListener("click", async (e) => {
         const messageId = Number(ctxTargetBubble.dataset.id || 0);
         const isMine = ctxTargetBubble.classList.contains("out");
         if (!isMine || !messageId) return;
+
+        closeReply?.();
+        replyToId = null;
 
         const text = ctxTargetBubble.querySelector(".bubble-text")?.textContent || "";
         editingMessageId = messageId;
@@ -924,6 +1015,44 @@ if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", setRealVh);
     window.visualViewport.addEventListener("scroll", setRealVh);
 }
+
+function smartReplyText(text, mainMessage) {
+    const clean = (text || "").replace(/\s+/g, " ").trim();
+
+    if (!mainMessage) return clean;
+
+    if (mainMessage.length > 60) {
+        return clean.length > 28 ? clean.slice(0, 28) + "..." : clean;
+    }
+
+    return clean;
+}
+
+function clipOneLine(s, max = 80) {
+    const t = (s || "").replace(/\s+/g, " ").trim();
+    return t.length > max ? (t.slice(0, max - 1) + "…") : t;
+}
+
+function openReply(reply) {
+    if (!reply || !reply.id) return;
+    replyToId = Number(reply.id);
+
+    replyNameEl.textContent = reply.user || "Foydalanuvchi";
+    replyTextEl.textContent = clipOneLine(reply.text || "");
+    replyBar.classList.remove("hidden");
+
+    lucide?.createIcons?.();
+    focusInput();
+}
+
+function closeReply() {
+    replyToId = null;
+    replyBar.classList.add("hidden");
+    replyNameEl.textContent = "";
+    replyTextEl.textContent = "";
+}
+
+replyCloseBtn?.addEventListener("click", closeReply);
 
 connectWs();
 syncSepVisibility();
