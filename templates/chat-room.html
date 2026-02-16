@@ -168,11 +168,24 @@
                 <button id="sendBtn"
                         class="h-11 w-11 rounded-2xl bg-slate-900 text-white hover:bg-slate-800
                                transition active:scale-[0.98]
-                               flex items-center justify-center shadow-sm">
-                    <i data-lucide="arrow-up"
-                       class="w-5 h-5 -translate-y-[1px]"
-                       style="stroke-width:2.4"></i>
+                               flex items-center justify-center shadow-sm relative"
+                        title="Yuborish">
+
+                    <span id="sendIconWrap" class="flex items-center justify-center">
+                        <i data-lucide="arrow-up"
+                           class="w-5 h-5 -translate-y-[1px]"
+                           style="stroke-width:2.4"></i>
+                    </span>
+
+                    <span id="sendSpinnerWrap" class="hidden absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity="0.25"></circle>
+                            <path d="M21 12a9 9 0 0 1-9 9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+                        </svg>
+                    </span>
+
                 </button>
+
             </form>
         </div>
     </footer>

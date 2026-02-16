@@ -265,23 +265,34 @@ html, body {
 }
 
 @media (max-width: 480px) {
+
     .bubble {
-        max-width: 88%;
-        padding: 10px 12px 22px 12px;
+        max-width: 90%;
+        padding: 10px 12px 24px 12px;
+        border-radius: 18px;
     }
 
     .bubble-text {
-        padding-right: 10px;
+        padding-right: 48px;
+        font-size: 14px;
+        line-height: 1.45;
+        word-break: break-word;
+        overflow-wrap: anywhere;
     }
 
     .bubble-meta {
-        right: 8px;
+        position: absolute;
+        right: 10px;
         bottom: 6px;
         font-size: 10px;
-        gap: 5px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        opacity: 0.8;
     }
 
     .ticks {
-        width: 20px;
+        width: 18px;
+        height: 14px;
     }
 }

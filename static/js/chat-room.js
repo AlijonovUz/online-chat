@@ -22,6 +22,9 @@ const replyNameEl = document.getElementById("replyName");
 const replyTextEl = document.getElementById("replyText");
 const replyCloseBtn = document.getElementById("replyCloseBtn");
 
+const sendIconWrap = document.getElementById("sendIconWrap");
+const sendSpinnerWrap = document.getElementById("sendSpinnerWrap");
+
 let replyToId = null;
 
 let socket = null;
@@ -40,6 +43,46 @@ let loaderShownAt = 0;
 
 const LOADER_DELAY_MS = 120;
 const LOADER_MIN_MS = 250;
+
+let pendingSend = null;
+let reconnecting = false;
+
+function setSendUi(connected) {
+    if (connected) {
+        sendSpinnerWrap.classList.add("hidden");
+        sendIconWrap.classList.remove("hidden");
+    } else {
+        sendIconWrap.classList.add("hidden");
+        sendSpinnerWrap.classList.remove("hidden");
+    }
+}
+
+function sendPayload(payload) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+    socket.send(JSON.stringify(payload));
+    return true;
+}
+
+function ensureConnectedAndSend(payload) {
+    if (sendPayload(payload)) return true;
+
+    pendingSend = payload;
+
+    if (reconnecting) return false;
+    reconnecting = true;
+
+    try {
+        socket?.close?.();
+    } catch {
+    }
+    socket = null;
+
+    setSubStatus("Ulanmoqda...");
+    setSendUi(false);
+
+    connectWs();
+    return false;
+}
 
 function showOlderLoader() {
     loaderShownAt = 0;
@@ -510,32 +553,56 @@ function setTicksReadUpTo(upToId) {
 function connectWs() {
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
 
+    if (!receiverId || Number.isNaN(receiverId)) {
+        setSubStatus("Ulanmoqda...");
+        setSendUi(false);
+        return;
+    }
+
     const scheme = location.protocol === "https:" ? "wss" : "ws";
     const wsUrl = `${scheme}://${location.host}/ws/private/${receiverId}/`;
     socket = new WebSocket(wsUrl);
 
     setSubStatus("Ulanmoqda...");
-    sendBtn.disabled = true;
+    setSendUi(false);
 
     socket.onopen = () => {
-        sendBtn.disabled = false;
+        reconnecting = false;
+        setSendUi(true);
         setSubStatus(lastBaseStatus);
         focusInput();
+
+        if (pendingSend) {
+            const p = pendingSend;
+            pendingSend = null;
+            sendPayload(p);
+        }
     };
+
     socket.onclose = () => {
-        sendBtn.disabled = true;
         lastBaseStatus = "yaqinda onlayn edi";
         loadingOlder = false;
 
         hideOlderLoader();
         setSubStatus(lastBaseStatus);
+
+        socket = null;
+        reconnecting = false;
+        setSendUi(false);
     };
     socket.onerror = () => {
-        sendBtn.disabled = true;
         loadingOlder = false;
 
         hideOlderLoader();
         setSubStatus("Ulanmoqda...");
+
+        try {
+            socket?.close?.();
+        } catch {
+        }
+        socket = null;
+        reconnecting = false;
+        setSendUi(false);
     };
 
     socket.onmessage = (e) => {
@@ -718,21 +785,21 @@ inputEl.addEventListener("keydown", (e) => {
 
 formEl.addEventListener("submit", (e) => {
     e.preventDefault();
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
 
     const msg = (inputEl.value || "").trim();
     if (!msg) return;
 
+    const payload = editingMessageId ? {edit: true, message_id: editingMessageId, message: msg} : {
+        message: msg,
+        reply_to_id: replyToId || null
+    };
+
+    ensureConnectedAndSend(payload);
+
     if (editingMessageId) {
-        socket.send(JSON.stringify({
-            edit: true, message_id: editingMessageId, message: msg
-        }));
         editingMessageId = null;
         inputEl.classList.remove("ring-2", "ring-blue-500");
     } else {
-        socket.send(JSON.stringify({
-            message: msg, reply_to_id: replyToId || null
-        }));
         closeReply();
     }
 
