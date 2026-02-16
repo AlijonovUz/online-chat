@@ -623,8 +623,7 @@ function connectWs() {
                     ed.textContent = "✎";
 
                     const timeEl = meta.querySelector("span");
-                    if (timeEl) meta.insertBefore(ed, timeEl);
-                    else meta.prepend(ed);
+                    if (timeEl) meta.insertBefore(ed, timeEl); else meta.prepend(ed);
                 }
             }
 
@@ -1028,7 +1027,7 @@ function smartReplyText(text, mainMessage) {
     return clean;
 }
 
-function clipOneLine(s, max = 80) {
+function clipOneLine(s, max = 28) {
     const t = (s || "").replace(/\s+/g, " ").trim();
     return t.length > max ? (t.slice(0, max - 1) + "…") : t;
 }
