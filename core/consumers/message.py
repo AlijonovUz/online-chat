@@ -394,6 +394,10 @@ class MessageConsumer(AsyncWebsocketConsumer):
         if msg.sender_id != me_id:
             return None
 
+        old_text = (msg.text or "").strip()
+        if new_text == old_text:
+            return None
+
         msg.text = new_text
         msg.is_edited = True
         msg.edited_at = timezone.now()
