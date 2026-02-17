@@ -1,5 +1,5 @@
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import redirect, get_object_or_404
 from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView, TemplateView
@@ -100,13 +100,18 @@ class SearchUsersView(LoginRequiredMixin, View):
 class PrivateChatView(LoginRequiredMixin, TemplateView):
     template_name = "chat-room.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        self.receiver = get_object_or_404(User, username=kwargs["receiver_username"])
+
+        if self.receiver.id == request.user.id:
+            return redirect("chat-list")
+
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        receiver = get_object_or_404(
-            User,
-            username=self.kwargs["receiver_username"]
-        )
+        receiver = self.receiver
 
         context.update({
             "receiver_id": receiver.id,
