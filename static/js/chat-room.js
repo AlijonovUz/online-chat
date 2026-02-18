@@ -7,7 +7,6 @@ const messagesEl = document.getElementById("messages");
 const subStatusEl = document.getElementById("subStatus");
 const inputEl = document.getElementById("messageInput");
 const formEl = document.getElementById("form");
-const sendBtn = document.getElementById("sendBtn");
 const scrollBtn = document.getElementById("scrollBottomBtn");
 const olderLoader = document.getElementById("olderLoader");
 
