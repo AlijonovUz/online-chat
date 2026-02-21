@@ -12,6 +12,118 @@ const profileOk = document.getElementById("profileOk");
 
 let timer = null;
 
+const profileViewBox = document.getElementById("profileViewBox");
+const profileEditBox = document.getElementById("profileEditBox");
+
+const profileEditBtnInModal = document.getElementById("profileEditBtnInModal");
+const profileEditCancel = document.getElementById("profileEditCancel");
+
+(() => {
+  const menu = document.getElementById("chatCtxMenu");
+  const form = document.getElementById("chatDeleteForm");
+  if (!menu || !form) return;
+
+  let currentRow = null;
+  let longPressTimer = null;
+  let longPressFired = false;
+
+  function hideMenu() {
+    menu.classList.add("hidden");
+    currentRow = null;
+  }
+
+  function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+  function showMenuAt(x, y, row) {
+    currentRow = row;
+    menu.classList.remove("hidden");
+    lucide?.createIcons?.();
+
+    const rect = menu.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const left = clamp(x, 8, vw - rect.width - 8);
+    const top  = clamp(y, 8, vh - rect.height - 8);
+
+    menu.style.left = left + "px";
+    menu.style.top  = top + "px";
+  }
+
+  document.addEventListener("contextmenu", (e) => {
+    const row = e.target.closest(".user-row");
+    if (!row) return;
+    e.preventDefault();
+    showMenuAt(e.clientX, e.clientY, row);
+  });
+
+  document.addEventListener("pointerdown", (e) => {
+    const row = e.target.closest(".user-row");
+    if (!row) return;
+    if (e.pointerType === "mouse") return;
+
+    longPressFired = false;
+    clearTimeout(longPressTimer);
+
+    longPressTimer = setTimeout(() => {
+      longPressFired = true;
+      showMenuAt(e.clientX || (window.innerWidth / 2), e.clientY || 80, row);
+      navigator.vibrate?.(10);
+    }, 550);
+  }, { passive: true });
+
+  document.addEventListener("pointerup", () => clearTimeout(longPressTimer));
+  document.addEventListener("pointermove", () => clearTimeout(longPressTimer));
+
+  document.addEventListener("click", (e) => {
+    const row = e.target.closest(".user-row");
+    if (row && longPressFired) {
+      e.preventDefault();
+      longPressFired = false;
+      return;
+    }
+    if (!menu.classList.contains("hidden") && !e.target.closest("#chatCtxMenu")) hideMenu();
+  });
+
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideMenu(); });
+
+  menu.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-action]");
+    if (!btn || !currentRow) return;
+
+    const action = btn.dataset.action;
+    const href = currentRow.getAttribute("href");
+    const delUrl = currentRow.dataset.deleteUrl;
+
+    if (action === "open") {
+      window.location.href = href;
+      return;
+    }
+
+    if (action === "delete") {
+      hideMenu();
+      if (!delUrl) return;
+      form.action = delUrl;
+      form.submit();
+    }
+  });
+
+  window.addEventListener("scroll", hideMenu, { passive: true });
+  window.addEventListener("resize", hideMenu);
+})();
+
+function openProfileEdit() {
+    profileViewBox?.classList.add("hidden");
+    profileEditBox?.classList.remove("hidden");
+    lucide?.createIcons?.();
+}
+
+function closeProfileEdit() {
+    profileEditBox?.classList.add("hidden");
+    profileViewBox?.classList.remove("hidden");
+    lucide?.createIcons?.();
+}
+
 function openProfile() {
     profileModal?.classList.remove("hidden");
     document.body.style.overflow = "hidden";
@@ -21,11 +133,17 @@ function openProfile() {
 function closeProfile() {
     profileModal?.classList.add("hidden");
     document.body.style.overflow = "";
+
+    profileEditBox?.classList.add("hidden");
+    profileViewBox?.classList.remove("hidden");
 }
 
 profileBtn?.addEventListener("click", openProfile);
 profileClose?.addEventListener("click", closeProfile);
 profileOk?.addEventListener("click", closeProfile);
+
+profileEditBtnInModal?.addEventListener("click", openProfileEdit);
+profileEditCancel?.addEventListener("click", closeProfileEdit);
 
 profileModal?.addEventListener("click", (e) => {
     if (e.target === profileModal || e.target === profileModal.firstElementChild) closeProfile();

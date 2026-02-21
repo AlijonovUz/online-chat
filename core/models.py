@@ -1,8 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
+from .utils import user_image_path
 
 class User(AbstractUser):
+    image = models.ImageField(upload_to=user_image_path, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
 
 

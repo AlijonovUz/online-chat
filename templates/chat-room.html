@@ -16,9 +16,19 @@
         <div class="mx-auto max-w-5xl px-4 sm:px-6 py-3">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3 min-w-0">
-                    <div class="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                    <div class="w-12 h-12 rounded-full overflow-hidden bg-slate-100
+                              border border-slate-200 ring-1 ring-black/5 flex
+                              items-center justify-center group-hover:border-slate-300 transition">
+                    {% if receiver_image %}
+                      <img
+                        src="{{ receiver_image.url }}"
+                        alt="{{ receiver_name }}"
+                        class="w-full h-full object-cover block"
+                      >
+                    {% else %}
                         <i data-lucide="user" class="w-5 h-5 text-slate-700"></i>
-                    </div>
+                    {% endif %}
+                  </div>
 
                     <div class="min-w-0">
                         <div class="flex items-center gap-1">

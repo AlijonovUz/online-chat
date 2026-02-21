@@ -26,9 +26,27 @@
 
 {% block scripts %}
 {% endblock %}
-<script defer src="{% static 'js/devtools-blocker.js' %}"></script>
-<script>
-
+<script id="django-messages" type="application/json">
+[
+{% if messages %}
+{% for m in messages %}
+  {"text":"{{ m|escapejs }}","tags":"{{ m.tags|escapejs }}"}{% if not forloop.last %},{% endif %}
+{% endfor %}
+{% endif %}
+]
 </script>
+
+<script>
+  try {
+    window.__DJANGO_MESSAGES__ = JSON.parse(
+      document.getElementById("django-messages").textContent || "[]"
+    );
+  } catch (e) {
+    window.__DJANGO_MESSAGES__ = [];
+  }
+</script>
+
+<script src="{% static 'js/toast.js' %}"></script>
+<script defer src="{% static 'js/devtools-blocker.js' %}"></script>
 </body>
 </html>
