@@ -137,7 +137,7 @@ Chatlar - BirGap
                       >
                     {% else %}
                       <span class="text-slate-800 font-semibold">
-                        {{ u.name|slice:":1"|upper }}
+                        {{ u.first_name|slice:":1"|upper }}
                       </span>
                     {% endif %}
                   </div>
@@ -254,7 +254,7 @@ Chatlar - BirGap
                           >
                         {% else %}
                           <span class="text-slate-800 font-semibold">
-                            {{ user.name|slice:":1"|upper }}
+                            {{ user.first_name|slice:":1"|upper }}
                           </span>
                         {% endif %}
                       </div>
