@@ -66,9 +66,7 @@ function showToast(text, tags = "") {
         paused = false;
         start = performance.now();
 
-        // restart bar animation with remaining time
         bar.style.animation = "none";
-        // force reflow
         void bar.offsetHeight;
         bar.style.animation = `toastBar linear ${remaining}ms forwards`;
 
@@ -85,7 +83,6 @@ function showToast(text, tags = "") {
 
         clearTimeout(timer);
 
-        // pause bar at current width
         const computed = getComputedStyle(bar);
         const matrix = computed.transform; // matrix(...) or none
         bar.style.animation = "none";
@@ -97,7 +94,6 @@ function showToast(text, tags = "") {
     toast.addEventListener("mouseenter", pauseTimer);
     toast.addEventListener("mouseleave", startTimer);
 
-    // ESC to close (only for the latest toast)
     const onKey = (e) => {
         if (e.key === "Escape") {
             remove();
@@ -182,7 +178,7 @@ function injectToastStyles() {
 
   display: grid;
   grid-template-columns: 40px 1fr 40px;
-  align-items: start;
+  align-items: center;
   gap: .5rem;
   padding: .85rem .9rem;
 
@@ -208,11 +204,10 @@ function injectToastStyles() {
   border-radius: 14px;
   display: grid;
   place-items: center;
-  margin-top: .05rem;
 }
 
 /* text */
-.toast__body{ padding-top: .1rem; }
+.toast__body{ padding-top: 0rem; }
 .toast__text{
   font-size: .9rem;
   font-weight: 650;

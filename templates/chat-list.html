@@ -6,6 +6,7 @@ Chatlar - BirGap
 {% endblock %}
 
 {% block head %}
+<link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css">
 <link href="{% static 'css/chat-list.css' %}" rel="stylesheet">
 {% endblock %}
 
@@ -126,94 +127,94 @@ Chatlar - BirGap
                     data-delete-url="{% url 'chat-delete' u.username %}"
             >
                 <div class="relative shrink-0">
-                  <div class="w-12 h-12 rounded-full overflow-hidden bg-slate-100
+                    <div class="w-12 h-12 rounded-full overflow-hidden bg-slate-100
                               border border-slate-200 ring-1 ring-black/5 flex
                               items-center justify-center group-hover:border-slate-300 transition">
-                    {% if u.image %}
-                      <img
-                        src="{{ u.image.url }}"
-                        alt="{{ u.first_name }}"
-                        class="w-full h-full object-cover block"
-                      >
-                    {% else %}
-                      <span class="text-slate-800 font-semibold">
+                        {% if u.image %}
+                        <img
+                                src="{{ u.image.url }}"
+                                alt="{{ u.first_name }}"
+                                class="w-full h-full object-cover block"
+                        >
+                        {% else %}
+                        <span class="text-slate-800 font-semibold">
                         {{ u.name|slice:":1"|upper }}
                       </span>
-                    {% endif %}
-                  </div>
-
-                {% if u.online %}
-                <span class="absolute -bottom-1 -right-1 w-4.5 h-4.5 bg-emerald-500 border-[3px] border-white rounded-full"></span>
-                {% endif %}
-        </div>
-
-        <div class="min-w-0 flex-1">
-            <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <div class="flex items-center gap-1 min-w-0">
-                            <div class="truncate text-[15px] leading-5 {% if u.unread %}font-semibold text-slate-900{% else %}font-medium text-slate-700{% endif %}">
-                                {{ u.name }}
-                            </div>
-
-                            {% if u.is_verified %}
-                            <svg class="w-[14px] h-[14px] shrink-0 block" viewBox="0 0 24 24" fill="none"
-                                 aria-hidden="true">
-                                <circle cx="12" cy="12" r="10" fill="#3390EC"/>
-                                <path d="M8 12.5L10.2 14.7L16 9" stroke="white" stroke-width="2"
-                                      stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                            {% endif %}
-                        </div>
-
-                        {% if u.online %}
-                        <span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold
-                             bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                  onlayn
-                                </span>
                         {% endif %}
                     </div>
 
-                    <div class="mt-0.5 text-sm text-slate-500 truncate">@{{ u.username }}</div>
-
-                    {% if u.last_message %}
-                    <div class="mt-1 text-sm text-slate-600 truncate">
-                        {{ u.last_message }}
-                    </div>
+                    {% if u.online %}
+                    <span class="absolute -bottom-1 -right-1 w-4.5 h-4.5 bg-emerald-500 border-[3px] border-white rounded-full"></span>
                     {% endif %}
                 </div>
 
-                <div class="shrink-0 flex items-center gap-2 pt-0.5">
-                    {% if u.unread %}
-                    <span class="min-w-[26px] h-[26px] px-2 rounded-full bg-slate-900 text-white text-xs font-semibold
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <div class="flex items-center gap-1 min-w-0">
+                                    <div class="truncate text-[15px] leading-5 {% if u.unread %}font-semibold text-slate-900{% else %}font-medium text-slate-700{% endif %}">
+                                        {{ u.name }}
+                                    </div>
+
+                                    {% if u.is_verified %}
+                                    <svg class="w-[14px] h-[14px] shrink-0 block" viewBox="0 0 24 24" fill="none"
+                                         aria-hidden="true">
+                                        <circle cx="12" cy="12" r="10" fill="#3390EC"/>
+                                        <path d="M8 12.5L10.2 14.7L16 9" stroke="white" stroke-width="2"
+                                              stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    {% endif %}
+                                </div>
+
+                                {% if u.online %}
+                                <span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold
+                             bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                  onlayn
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <div class="mt-0.5 text-sm text-slate-500 truncate">@{{ u.username }}</div>
+
+                            {% if u.last_message %}
+                            <div class="mt-1 text-sm text-slate-600 truncate">
+                                {{ u.last_message }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="shrink-0 flex items-center gap-2 pt-0.5">
+                            {% if u.unread %}
+                            <span class="min-w-[26px] h-[26px] px-2 rounded-full bg-slate-900 text-white text-xs font-semibold
                            inline-flex items-center justify-center">
                             {{ u.unread }}
                           </span>
-                    {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </a>
+            {% empty %}
+            <div class="min-h-[60vh] flex items-center justify-center px-4">
+                <div class="text-center max-w-sm w-full">
+
+                    <div class="mx-auto w-20 h-20 rounded-3xl bg-slate-100 border border-slate-200 flex items-center justify-center mb-6 shadow-sm transition hover:scale-105">
+                        <i data-lucide="message-circle" class="w-8 h-8 text-slate-500"></i>
+                    </div>
+
+                    <div class="text-lg font-semibold text-slate-800">
+                        Hozircha chatlar yo‘q
+                    </div>
+
+                    <div class="text-sm text-slate-500 mt-2 leading-relaxed">
+                        Qidiruvdan foydalanuvchi toping va suhbatni boshlang.
+                    </div>
                 </div>
             </div>
+            {% endfor %}
         </div>
-        </a>
-        {% empty %}
-        <div class="min-h-[60vh] flex items-center justify-center px-4">
-            <div class="text-center max-w-sm w-full">
-
-                <div class="mx-auto w-20 h-20 rounded-3xl bg-slate-100 border border-slate-200 flex items-center justify-center mb-6 shadow-sm transition hover:scale-105">
-                    <i data-lucide="message-circle" class="w-8 h-8 text-slate-500"></i>
-                </div>
-
-                <div class="text-lg font-semibold text-slate-800">
-                    Hozircha chatlar yo‘q
-                </div>
-
-                <div class="text-sm text-slate-500 mt-2 leading-relaxed">
-                    Qidiruvdan foydalanuvchi toping va suhbatni boshlang.
-                </div>
-            </div>
-        </div>
-        {% endfor %}
     </div>
-</div>
 </div>
 
 <div id="profileModal" class="hidden fixed inset-0 z-[60]">
@@ -238,26 +239,26 @@ Chatlar - BirGap
                 </button>
             </div>
 
-            <div class="p-5">
+            <div class="p-4 pt-4">
 
                 {# VIEW MODE #}
                 <div id="profileViewBox">
                     <div class="flex items-center gap-4">
-                      <div class="w-14 h-14 rounded-full overflow-hidden bg-slate-100
+                        <div class="w-14 h-14 rounded-full overflow-hidden bg-slate-100
                                   border border-slate-200 ring-1 ring-black/5 flex
                                   items-center justify-center group-hover:border-slate-300 transition">
-                        {% if user.image %}
-                          <img
-                            src="{{ user.image.url }}"
-                            alt="{{ user.first_name }}"
-                            class="w-full h-full object-cover block"
-                          >
-                        {% else %}
-                          <span class="text-slate-800 font-semibold">
+                            {% if user.image %}
+                            <img
+                                    src="{{ user.image.url }}"
+                                    alt="{{ user.first_name }}"
+                                    class="w-full h-full object-cover block"
+                            >
+                            {% else %}
+                            <span class="text-slate-800 font-semibold">
                             {{ user.first_name|slice:":1"|upper }}
                           </span>
-                        {% endif %}
-                      </div>
+                            {% endif %}
+                        </div>
 
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
@@ -287,7 +288,6 @@ Chatlar - BirGap
                                         id="profileEditBtnInModal"
                                         class="w-10 h-10 rounded-2xl border border-slate-200 hover:bg-slate-50
                    flex items-center justify-center transition active:scale-[0.98]"
-                                        title="Tahrirlash"
                                 >
                                     <i data-lucide="pencil" class="w-5 h-5 text-slate-700"></i>
                                 </button>
@@ -335,75 +335,101 @@ Chatlar - BirGap
                 </div>
 
                 {# EDIT MODE #}
-                <div id="profileEditBox" class="hidden mt-5">
+                <div id="profileEditBox" class="hidden">
                     <form method="post" action="{% url 'profile-update' %}" enctype="multipart/form-data"
                           class="space-y-4">
                         {% csrf_token %}
 
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                            <div class="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                                <i data-lucide="pencil" class="w-4 h-4"></i> Profilni tahrirlash
+                        <!-- Avatar row -->
+                        <div class="flex items-center gap-4">
+                            <div class="w-14 h-14 rounded-full overflow-hidden bg-slate-100 border border-slate-200 ring-1 ring-black/5 flex items-center justify-center">
+                                {% if user.image %}
+                                <img id="avatarPreview" src="{{ user.image.url }}" alt="{{ user.first_name }}"
+                                     class="w-full h-full object-cover block">
+                                {% else %}
+                                <span id="avatarFallback" class="text-slate-800 font-semibold">
+                                    {{ user.first_name|slice:":1"|upper }}
+                                </span>
+                                {% endif %}
                             </div>
 
-                            <div class="grid gap-3">
-                                <label class="block">
-                                    <span class="text-xs font-semibold text-slate-600">Rasm</span>
-                                    <input
-                                            type="file"
-                                            name="image"
-                                            accept="image/*"
-                                            class="mt-1 block w-full text-sm
-                     file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0
-                     file:bg-slate-900 file:text-white file:font-semibold
-                     hover:file:bg-slate-800
-                     bg-white border border-slate-200 rounded-2xl px-3 py-2"
-                                    />
-                                </label>
+                            <div class="min-w-0 flex-1">
+                                <div class="text-sm font-semibold text-slate-900">Profil rasmini yangilash</div>
 
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <label class="block">
-                                        <span class="text-xs font-semibold text-slate-600">Foydalanuvchi nomi</span>
-                                        <input
-                                                type="text"
-                                                name="username"
-                                                value="{{ form.username.value }}"
-                                                class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200
-                       focus:outline-none focus:ring-4 focus:ring-slate-900/10 focus:border-slate-300 transition"
-                                                required
-                                        />
-                                    </label>
+                                <!-- Hidden real input -->
+                                <input
+                                        id="avatarInput"
+                                        type="file"
+                                        name="image"
+                                        accept="image/*"
+                                        class="absolute w-[1px] h-[1px] p-0 -m-[1px] overflow-hidden whitespace-nowrap border-0 opacity-0"
+                                />
 
-                                    <label class="block">
-                                        <span class="text-xs font-semibold text-slate-600">Ism</span>
-                                        <input
-                                                type="text"
-                                                name="first_name"
-                                                value="{{ form.first_name.value }}"
-                                                class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200
-                       focus:outline-none focus:ring-4 focus:ring-slate-900/10 focus:border-slate-300 transition"
-                                        />
-                                    </label>
+                                <!-- Pretty button -->
+                                <div class="mt-2 flex gap-2">
+                                    <button type="button" id="avatarPickBtn"
+                                            class="h-10 px-4 rounded-2xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition active:scale-[0.98] flex items-center gap-2">
+                                        <i data-lucide="upload" class="w-4 h-4"></i>
+                                        Tanlash
+                                    </button>
+
+                                    <button type="button" id="avatarClearBtn" disabled
+                                            class="h-10 px-4 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition active:scale-[0.98] flex items-center gap-2">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        Tozalash
+                                    </button>
                                 </div>
-
-                                <label class="block">
-                                    <span class="text-xs font-semibold text-slate-600">Familiya</span>
-                                    <input
-                                            type="text"
-                                            name="last_name"
-                                            value="{{ form.last_name.value }}"
-                                            class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200
-                     focus:outline-none focus:ring-4 focus:ring-slate-900/10 focus:border-slate-300 transition"
-                                    />
-                                </label>
                             </div>
                         </div>
 
-                        <div class="flex gap-2">
+                        <div class="h-px bg-slate-200/70"></div>
+
+                        <!-- Inputs -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <!-- Ism -->
+                            <label class="block">
+                                <span class="text-xs font-semibold text-slate-600">Ism</span>
+                                <input
+                                        type="text"
+                                        name="first_name"
+                                        value="{{ form.first_name.value }}"
+                                        class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200
+             focus:outline-none focus:ring-4 focus:ring-slate-900/10 focus:border-slate-300 transition"
+                                />
+                            </label>
+
+                            <!-- Familiya -->
+                            <label class="block">
+                                <span class="text-xs font-semibold text-slate-600">Familiya</span>
+                                <input
+                                        type="text"
+                                        name="last_name"
+                                        value="{{ form.last_name.value }}"
+                                        class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200
+             focus:outline-none focus:ring-4 focus:ring-slate-900/10 focus:border-slate-300 transition"
+                                />
+                            </label>
+                        </div>
+
+                        <!-- Username -->
+                        <label class="block mt-3">
+                            <span class="text-xs font-semibold text-slate-600">Foydalanuvchi nomi</span>
+                            <input
+                                    type="text"
+                                    name="username"
+                                    value="{{ form.username.value }}"
+                                    class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200
+           focus:outline-none focus:ring-4 focus:ring-slate-900/10 focus:border-slate-300 transition"
+                                    required
+                            />
+                        </label>
+
+                        <div class="pt-1 flex gap-2">
                             <button
                                     type="button"
                                     id="profileEditCancel"
                                     class="flex-1 h-11 rounded-2xl border border-slate-200 bg-white font-semibold text-slate-700
-                 hover:bg-slate-50 transition active:scale-[0.98]"
+               hover:bg-slate-50 transition active:scale-[0.98]"
                             >
                                 Bekor qilish
                             </button>
@@ -411,7 +437,7 @@ Chatlar - BirGap
                             <button
                                     type="submit"
                                     class="flex-1 h-11 rounded-2xl bg-slate-900 text-white font-semibold
-                 hover:bg-slate-800 transition active:scale-[0.98]"
+               hover:bg-slate-800 transition active:scale-[0.98]"
                             >
                                 Saqlash
                             </button>
@@ -419,51 +445,125 @@ Chatlar - BirGap
                     </form>
                 </div>
             </div>
+            <!-- Crop Modal -->
+            <div id="cropModal" class="hidden fixed inset-0 z-[9999]">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+
+                <div class="relative min-h-full flex items-center justify-center p-4">
+                    <div class="w-full max-w-2xl rounded-3xl bg-white border border-slate-200 shadow-xl overflow-hidden">
+
+                        <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+                                    <i data-lucide="crop" class="w-5 h-5 text-slate-700"></i>
+                                </div>
+                                <div>
+                                    <div class="font-semibold text-slate-900">Rasmni sozlash</div>
+                                    <div class="text-xs text-slate-500">Kesing, yaqinlashtiring, joylang</div>
+                                </div>
+                            </div>
+
+                            <button id="cropClose" type="button"
+                                    class="w-10 h-10 rounded-2xl hover:bg-slate-50 flex items-center justify-center">
+                                <i data-lucide="x" class="w-5 h-5 text-slate-700"></i>
+                            </button>
+                        </div>
+
+                        <div class="p-5">
+                            <div class="rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden">
+                                <div class="w-full h-[380px] bg-slate-100 relative touch-none select-none">
+                                    <img id="cropImage" alt="crop" class="block max-w-full select-none"/>
+
+                                    <!-- Circle mask overlay -->
+                                    <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                        <div class="w-[280px] h-[280px] rounded-full ring-2 ring-white/95
+                                        shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"></div>
+                                    </div>
+
+                                    <!-- Grid overlay -->
+                                    <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                        <div class="w-[280px] h-[280px] grid grid-cols-3 grid-rows-3 opacity-60">
+                                            <div class="border border-white/30"></div>
+                                            <div class="border border-white/30"></div>
+                                            <div class="border border-white/30"></div>
+                                            <div class="border border-white/30"></div>
+                                            <div class="border border-white/30"></div>
+                                            <div class="border border-white/30"></div>
+                                            <div class="border border-white/30"></div>
+                                            <div class="border border-white/30"></div>
+                                            <div class="border border-white/30"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <button id="resetCrop" type="button"
+                                        class="w-full h-11 rounded-2xl border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 transition active:scale-[0.98] flex items-center justify-center gap-2">
+                                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                                    Tiklash
+                                </button>
+                            </div>
+
+                            <div class="mt-4 flex gap-2">
+                                <button id="cropCancel" type="button"
+                                        class="flex-1 h-11 rounded-2xl border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 transition active:scale-[0.98]">
+                                    Bekor qilish
+                                </button>
+
+                                <button id="cropApply" type="button"
+                                        class="flex-1 h-11 rounded-2xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition active:scale-[0.98]">
+                                    Saqlash
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-</div>
 
-<form id="chatDeleteForm" method="post" class="hidden">
-  {% csrf_token %}
-</form>
+    <form id="chatDeleteForm" method="post" class="hidden">
+        {% csrf_token %}
+    </form>
 
-<div id="chatCtxMenu"
-     class="hidden fixed z-[99999]
+    <div id="chatCtxMenu"
+         class="hidden fixed z-[99999]
             w-max min-w-[170px]
             rounded-2xl border border-slate-200
             bg-white shadow-xl overflow-hidden">
 
-  <button type="button" data-action="open"
-          class="flex items-center gap-2.5 w-full px-3 py-2.5
+        <button type="button" data-action="open"
+                class="flex items-center gap-2.5 w-full px-3 py-2.5
                  text-sm font-medium text-slate-700
                  hover:bg-slate-50 transition">
-    <i data-lucide="message-circle" class="w-4 h-4"></i>
-    Ochish
-  </button>
+            <i data-lucide="message-circle" class="w-4 h-4"></i>
+            Ochish
+        </button>
 
-  <div class="h-px bg-slate-200/80"></div>
+        <div class="h-px bg-slate-200/80"></div>
 
-  <button type="button" data-action="delete"
-          class="flex items-center gap-2.5 w-full px-3 py-2.5
+        <button type="button" data-action="delete"
+                class="flex items-center gap-2.5 w-full px-3 py-2.5
                  text-sm font-medium text-rose-600
                  hover:bg-rose-50 transition">
-    <i data-lucide="trash-2" class="w-4 h-4"></i>
-    O‘chirish
-  </button>
-</div>
-{% endblock %}
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            O‘chirish
+        </button>
+    </div>
+    {% endblock %}
 
-{% block scripts %}
+    {% block scripts %}
+    <script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js"></script>
+    <script defer src="{% static 'js/chat-list.js' %}"></script>
 
-<script defer src="{% static 'js/chat-list.js' %}"></script>
+    <script>
+        window.addEventListener("load", () => {
+            const loader = document.getElementById("page-loader");
+            loader.classList.add("opacity-0", "pointer-events-none");
+            setTimeout(() => loader.remove(), 500);
+        });
+    </script>
 
-<script>
-    window.addEventListener("load", () => {
-        const loader = document.getElementById("page-loader");
-        loader.classList.add("opacity-0", "pointer-events-none");
-        setTimeout(() => loader.remove(), 500);
-    });
-</script>
-
-{% endblock %}
+    {% endblock %}
 

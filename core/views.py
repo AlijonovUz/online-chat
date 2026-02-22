@@ -244,11 +244,16 @@ class ProfileUpdateView(LoginRequiredMixin, generic.UpdateView):
         return context
 
     def form_valid(self, form):
-        messages.success(self.request, "Ma'lumotlar muvaffaqiyatli yangilandi.")
+
+        if form.has_changed():
+            messages.success(self.request, "Ma'lumotlar yangilandi.")
+        else:
+            messages.info(self.request, "Hech qanday o'zgarish kiritilmadi.")
+
         return super().form_valid(form)
 
     def form_invalid(self, form):
-        msg = "Ma'lumotlarni yangilashda xatolik yuz berdi."
+        msg = "Ma'lumot yangilanmadi."
         if form.errors:
             first_field = next(iter(form.errors))
             msg = form.errors[first_field][0]

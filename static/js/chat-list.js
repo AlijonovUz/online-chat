@@ -19,97 +19,315 @@ const profileEditBtnInModal = document.getElementById("profileEditBtnInModal");
 const profileEditCancel = document.getElementById("profileEditCancel");
 
 (() => {
-  const menu = document.getElementById("chatCtxMenu");
-  const form = document.getElementById("chatDeleteForm");
-  if (!menu || !form) return;
+    const avatarInput = document.getElementById("avatarInput");
+    const avatarPickBtn = document.getElementById("avatarPickBtn");
+    const avatarClearBtn = document.getElementById("avatarClearBtn");
+    const avatarPreview = document.getElementById("avatarPreview");
+    const avatarFallback = document.getElementById("avatarFallback");
 
-  let currentRow = null;
-  let longPressTimer = null;
-  let longPressFired = false;
+    const cropModal = document.getElementById("cropModal");
+    const cropImage = document.getElementById("cropImage");
+    const cropPreview = document.getElementById("cropPreview");
 
-  function hideMenu() {
-    menu.classList.add("hidden");
-    currentRow = null;
-  }
+    const cropClose = document.getElementById("cropClose");
+    const cropCancel = document.getElementById("cropCancel");
+    const cropApply = document.getElementById("cropApply");
 
-  function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+    const resetCropBtn = document.getElementById("resetCrop");
 
-  function showMenuAt(x, y, row) {
-    currentRow = row;
-    menu.classList.remove("hidden");
-    lucide?.createIcons?.();
+    if (!avatarInput || !cropModal || !cropImage) return;
 
-    const rect = menu.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    let cropper = null;
+    let originalFileName = "avatar.png";
+    let currentBlobUrl = null;
+    let hasNewAvatar = false;
 
-    const left = clamp(x, 8, vw - rect.width - 8);
-    const top  = clamp(y, 8, vh - rect.height - 8);
+    const isBlobUrl = (s) => typeof s === "string" && s.startsWith("blob:");
+    const serverPreviewSrc = avatarPreview?.getAttribute("src") || "";
 
-    menu.style.left = left + "px";
-    menu.style.top  = top + "px";
-  }
-
-  document.addEventListener("contextmenu", (e) => {
-    const row = e.target.closest(".user-row");
-    if (!row) return;
-    e.preventDefault();
-    showMenuAt(e.clientX, e.clientY, row);
-  });
-
-  document.addEventListener("pointerdown", (e) => {
-    const row = e.target.closest(".user-row");
-    if (!row) return;
-    if (e.pointerType === "mouse") return;
-
-    longPressFired = false;
-    clearTimeout(longPressTimer);
-
-    longPressTimer = setTimeout(() => {
-      longPressFired = true;
-      showMenuAt(e.clientX || (window.innerWidth / 2), e.clientY || 80, row);
-      navigator.vibrate?.(10);
-    }, 550);
-  }, { passive: true });
-
-  document.addEventListener("pointerup", () => clearTimeout(longPressTimer));
-  document.addEventListener("pointermove", () => clearTimeout(longPressTimer));
-
-  document.addEventListener("click", (e) => {
-    const row = e.target.closest(".user-row");
-    if (row && longPressFired) {
-      e.preventDefault();
-      longPressFired = false;
-      return;
-    }
-    if (!menu.classList.contains("hidden") && !e.target.closest("#chatCtxMenu")) hideMenu();
-  });
-
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideMenu(); });
-
-  menu.addEventListener("click", (e) => {
-    const btn = e.target.closest("button[data-action]");
-    if (!btn || !currentRow) return;
-
-    const action = btn.dataset.action;
-    const href = currentRow.getAttribute("href");
-    const delUrl = currentRow.dataset.deleteUrl;
-
-    if (action === "open") {
-      window.location.href = href;
-      return;
+    function setEnabled(ok) {
+        [resetCropBtn, cropApply].forEach((b) => {
+            if (!b) return;
+            b.disabled = !ok;
+            b.classList.toggle("opacity-50", !ok);
+            b.classList.toggle("cursor-not-allowed", !ok);
+        });
     }
 
-    if (action === "delete") {
-      hideMenu();
-      if (!delUrl) return;
-      form.action = delUrl;
-      form.submit();
+    function openModal() {
+        cropModal.classList.remove("hidden");
+        document.body.style.overflow = "hidden";
+        setEnabled(false);
+        lucide?.createIcons?.();
     }
-  });
 
-  window.addEventListener("scroll", hideMenu, { passive: true });
-  window.addEventListener("resize", hideMenu);
+    function destroy() {
+        setEnabled(false);
+        if (cropper) {
+            cropper.destroy();
+            cropper = null;
+        }
+        if (currentBlobUrl) {
+            URL.revokeObjectURL(currentBlobUrl);
+            currentBlobUrl = null;
+        }
+        cropImage.onload = null;
+        cropImage.onerror = null;
+        cropImage.src = "";
+        if (cropPreview) cropPreview.src = "";
+    }
+
+    function closeModal() {
+        cropModal.classList.add("hidden");
+        document.body.style.overflow = "";
+        destroy();
+    }
+
+    avatarPickBtn?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        avatarInput.click();
+    });
+
+    avatarClearBtn?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!hasNewAvatar) return;
+
+        avatarInput.value = "";
+        hasNewAvatar = false;
+
+        if (avatarPreview) {
+            const old = avatarPreview.src || "";
+            if (isBlobUrl(old)) URL.revokeObjectURL(old);
+
+            if (serverPreviewSrc) {
+                avatarPreview.src = serverPreviewSrc;
+                avatarPreview.classList.remove("hidden");
+                avatarFallback?.classList.add("hidden");
+            } else {
+                avatarPreview.classList.add("hidden");
+                avatarFallback?.classList.remove("hidden");
+            }
+        }
+
+        avatarClearBtn.disabled = true;
+        avatarClearBtn.classList.add("opacity-50", "cursor-not-allowed");
+    });
+
+    avatarInput.addEventListener("change", () => {
+        const file = avatarInput.files?.[0];
+        if (!file) return;
+
+        originalFileName = file.name || "avatar.png";
+
+        destroy();
+        currentBlobUrl = URL.createObjectURL(file);
+
+        cropImage.onload = async () => {
+            try {
+                await cropImage.decode();
+            } catch {
+            }
+
+            cropper = new Cropper(cropImage, {
+                viewMode: 2,
+                dragMode: "move",
+                aspectRatio: 1,
+                autoCropArea: 1,
+                background: false,
+                responsive: true,
+                movable: true,
+                zoomable: true,
+                cropBoxMovable: false,
+                cropBoxResizable: false,
+                toggleDragModeOnDblclick: false,
+                ready() {
+                    cropper.setDragMode("move");
+                    requestAnimationFrame(() => setEnabled(true));
+                },
+            });
+        };
+
+        cropImage.onerror = () => closeModal();
+
+        openModal();
+        cropImage.src = currentBlobUrl;
+    });
+
+    cropClose?.addEventListener("click", (e) => {
+        e.preventDefault();
+        closeModal();
+    });
+    cropCancel?.addEventListener("click", (e) => {
+        e.preventDefault();
+        closeModal();
+    });
+
+    cropModal.addEventListener("click", (e) => {
+        if (e.target === cropModal) closeModal();
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !cropModal.classList.contains("hidden")) closeModal();
+    });
+
+    resetCropBtn?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        cropper?.reset();
+    });
+
+    cropApply?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!cropper) return;
+
+        const size = 512;
+
+        const square = cropper.getCroppedCanvas({width: size, height: size});
+
+        const circle = document.createElement("canvas");
+        circle.width = size;
+        circle.height = size;
+        const ctx = circle.getContext("2d");
+
+        ctx.clearRect(0, 0, size, size);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(square, 0, 0);
+        ctx.restore();
+
+        circle.toBlob((blob) => {
+            if (!blob) return;
+
+            const base = originalFileName.replace(/\.\w+$/, "");
+            const file = new File([blob], base + ".png", {type: "image/png", lastModified: Date.now()});
+
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            avatarInput.files = dt.files;
+
+            if (avatarPreview) {
+                const old = avatarPreview.src || "";
+                if (isBlobUrl(old)) URL.revokeObjectURL(old);
+
+                const url = URL.createObjectURL(file);
+                avatarPreview.src = url;
+                avatarPreview.classList.remove("hidden");
+                avatarFallback?.classList.add("hidden");
+            }
+
+            hasNewAvatar = true;
+            if (avatarClearBtn) {
+                avatarClearBtn.disabled = false;
+                avatarClearBtn.classList.remove("opacity-50", "cursor-not-allowed");
+            }
+
+            closeModal();
+        }, "image/png");
+    });
+})();
+
+(() => {
+    const menu = document.getElementById("chatCtxMenu");
+    const form = document.getElementById("chatDeleteForm");
+    if (!menu || !form) return;
+
+    let currentRow = null;
+    let longPressTimer = null;
+    let longPressFired = false;
+
+    function hideMenu() {
+        menu.classList.add("hidden");
+        currentRow = null;
+    }
+
+    function clamp(n, min, max) {
+        return Math.max(min, Math.min(max, n));
+    }
+
+    function showMenuAt(x, y, row) {
+        currentRow = row;
+        menu.classList.remove("hidden");
+        lucide?.createIcons?.();
+
+        const rect = menu.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        const left = clamp(x, 8, vw - rect.width - 8);
+        const top = clamp(y, 8, vh - rect.height - 8);
+
+        menu.style.left = left + "px";
+        menu.style.top = top + "px";
+    }
+
+    document.addEventListener("contextmenu", (e) => {
+        const row = e.target.closest(".user-row");
+        if (!row) return;
+        e.preventDefault();
+        showMenuAt(e.clientX, e.clientY, row);
+    });
+
+    document.addEventListener("pointerdown", (e) => {
+        const row = e.target.closest(".user-row");
+        if (!row) return;
+        if (e.pointerType === "mouse") return;
+
+        longPressFired = false;
+        clearTimeout(longPressTimer);
+
+        longPressTimer = setTimeout(() => {
+            longPressFired = true;
+            showMenuAt(e.clientX || (window.innerWidth / 2), e.clientY || 80, row);
+            navigator.vibrate?.(10);
+        }, 550);
+    }, {passive: true});
+
+    document.addEventListener("pointerup", () => clearTimeout(longPressTimer));
+    document.addEventListener("pointermove", () => clearTimeout(longPressTimer));
+
+    document.addEventListener("click", (e) => {
+        const row = e.target.closest(".user-row");
+        if (row && longPressFired) {
+            e.preventDefault();
+            longPressFired = false;
+            return;
+        }
+        if (!menu.classList.contains("hidden") && !e.target.closest("#chatCtxMenu")) hideMenu();
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") hideMenu();
+    });
+
+    menu.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-action]");
+        if (!btn || !currentRow) return;
+
+        const action = btn.dataset.action;
+        const href = currentRow.getAttribute("href");
+        const delUrl = currentRow.dataset.deleteUrl;
+
+        if (action === "open") {
+            window.location.href = href;
+            return;
+        }
+
+        if (action === "delete") {
+            hideMenu();
+            if (!delUrl) return;
+            form.action = delUrl;
+            form.submit();
+        }
+    });
+
+    window.addEventListener("scroll", hideMenu, {passive: true});
+    window.addEventListener("resize", hideMenu);
 })();
 
 function openProfileEdit() {
