@@ -125,6 +125,8 @@
                             data-online="{% if u.online %}1{% else %}0{% endif %}"
                             data-unread="{% if u.unread %}{{ u.unread }}{% else %}0{% endif %}"
                             data-delete-url="{% url 'chat-delete' u.username %}"
+                            data-verified="{% if u.is_verified %}1{% else %}0{% endif %}"
+                            data-verify-url="{% url 'toggle-verify' u.username %}"
                     >
                         <div class="relative shrink-0">
                             <div class="w-12 h-12 rounded-full overflow-hidden bg-slate-100
@@ -520,6 +522,18 @@
             <i data-lucide="message-circle" class="w-4 h-4 shrink-0"></i>
             <span>Ochish</span>
         </button>
+
+        {% if user.is_staff %}
+            <div class="h-px bg-slate-200/80 mx-2 my-0.5"></div>
+
+            <button type="button" data-action="verify"
+                    class="flex items-center gap-3 w-full px-3 py-2.5
+                       text-sm font-medium text-slate-700
+                       hover:bg-slate-100 rounded-lg transition">
+                <i data-lucide="badge-check" class="w-4 h-4 shrink-0"></i>
+                <span id="verifyBtnText">Tasdiqlash</span>
+            </button>
+        {% endif %}
 
         <div class="h-px bg-slate-200/80 mx-2 my-0.5"></div>
 

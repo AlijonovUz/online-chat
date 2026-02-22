@@ -131,24 +131,15 @@ const profileEditCancel = document.getElementById("profileEditCancel");
             }
 
             cropper = new Cropper(cropImage, {
-                viewMode: 1,
-                aspectRatio: 1,
-                autoCropArea: 0.85,
+                viewMode: 1, aspectRatio: 1, autoCropArea: 0.85,
 
-                dragMode: "move",
-                movable: true,
-                zoomable: true,
+                dragMode: "move", movable: true, zoomable: true,
 
-                cropBoxMovable: true,
-                cropBoxResizable: true,
+                cropBoxMovable: true, cropBoxResizable: true,
 
                 toggleDragModeOnDblclick: false,
 
-                guides: true,
-                center: true,
-                highlight: false,
-                background: false,
-                responsive: true,
+                guides: true, center: true, highlight: false, background: false, responsive: true,
 
                 ready() {
                     requestAnimationFrame(() => {
@@ -254,8 +245,16 @@ const profileEditCancel = document.getElementById("profileEditCancel");
 
 (() => {
     const menu = document.getElementById("chatCtxMenu");
+    const verifyBtnText = document.getElementById("verifyBtnText");
     const form = document.getElementById("chatDeleteForm");
     if (!menu || !form) return;
+
+    function updateVerifyText(row) {
+        if (!verifyBtnText || !row) return;
+
+        const isVerified = row.dataset.verified === "1";
+        verifyBtnText.textContent = isVerified ? "Bekor qilish" : "Tasdiqlash";
+    }
 
     let currentRow = null;
     let longPressTimer = null;
@@ -273,6 +272,9 @@ const profileEditCancel = document.getElementById("profileEditCancel");
     function showMenuAt(x, y, row) {
         currentRow = row;
         menu.classList.remove("hidden");
+
+        updateVerifyText(row);
+
         lucide?.createIcons?.();
 
         const rect = menu.getBoundingClientRect();
@@ -335,6 +337,34 @@ const profileEditCancel = document.getElementById("profileEditCancel");
 
         if (action === "open") {
             window.location.href = href;
+            return;
+        }
+
+        if (action === "verify") {
+            const row = currentRow;
+            const verifyUrl = row?.dataset.verifyUrl;
+            if (!verifyUrl) return;
+
+            hideMenu();
+
+            const csrf = form.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+            fetch(verifyUrl, {
+                method: "POST", headers: {
+                    "X-CSRFToken": csrf,
+                },
+            })
+                .then(res => {
+                    if (!res.ok) throw new Error();
+                    return res.json();
+                })
+                .then(data => {
+                    row.dataset.verified = data.is_verified ? "1" : "0";
+                    location.reload();
+                })
+                .catch(() => {
+                });
+
             return;
         }
 

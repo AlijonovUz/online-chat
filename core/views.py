@@ -7,6 +7,8 @@ from django.views import View, generic
 from django.views.generic import ListView, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q, Count, OuterRef, Subquery, IntegerField, Exists
+from django.contrib.admin.views.decorators import staff_member_required
+from django.utils.decorators import method_decorator
 from django.db.models.functions import Coalesce
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
@@ -130,7 +132,7 @@ class PrivateChatView(LoginRequiredMixin, TemplateView):
     template_name = "chat-room.html"
 
     def dispatch(self, request, *args, **kwargs):
-        self.receiver = get_object_or_404(User, username=kwargs["receiver_username"])
+        self.receiver = get_object_or_404(User, username=kwargs["username"])
 
         if self.receiver.id == request.user.id:
             return redirect("chat-list")
@@ -260,3 +262,17 @@ class ProfileUpdateView(LoginRequiredMixin, generic.UpdateView):
         messages.error(self.request, msg)
 
         return redirect("chat-list")
+
+
+@method_decorator(staff_member_required, name='dispatch')
+class ToggleVerifyView(View):
+
+    def post(self, request, username, *args, **kwargs):
+        user = get_object_or_404(User, username=username)
+
+        user.is_verified = not user.is_verified
+        user.save()
+
+        return JsonResponse({
+            "is_verified": user.is_verified
+        })
