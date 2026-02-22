@@ -32,3 +32,5 @@ class UserAdmin(BaseUserAdmin):
             "fields": ("image", "is_verified",),
         }),
     )
+
+admin.site.register(Message)

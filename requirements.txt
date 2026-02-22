@@ -39,3 +39,4 @@ whitenoise==6.9.0
 zope.interface==8.2
 pillow==11.1.0
 django-cleanup==9.0.0
+cryptography==44.0.2

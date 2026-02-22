@@ -26,6 +26,9 @@ const sendSpinnerWrap = document.getElementById("sendSpinnerWrap");
 
 let replyToId = null;
 
+let pingInterval = null;
+const PING_MS = 30000;
+
 let socket = null;
 let typingTimer = null;
 let editingMessageId = null;
@@ -571,6 +574,17 @@ function connectWs() {
         setSubStatus(lastBaseStatus);
         focusInput();
 
+        if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+        }
+
+        pingInterval = setInterval(() => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ping: true}));
+            }
+        }, PING_MS);
+
         if (pendingSend) {
             const p = pendingSend;
             pendingSend = null;
@@ -585,6 +599,11 @@ function connectWs() {
         hideOlderLoader();
         setSubStatus(lastBaseStatus);
 
+        if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+        }
+
         socket = null;
         reconnecting = false;
         setSendUi(false);
@@ -594,6 +613,11 @@ function connectWs() {
 
         hideOlderLoader();
         setSubStatus("Ulanmoqda...");
+
+        if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+        }
 
         try {
             socket?.close?.();
@@ -789,8 +813,7 @@ formEl.addEventListener("submit", (e) => {
     if (!msg) return;
 
     const payload = editingMessageId ? {edit: true, message_id: editingMessageId, message: msg} : {
-        message: msg,
-        reply_to_id: replyToId || null
+        message: msg, reply_to_id: replyToId || null
     };
 
     ensureConnectedAndSend(payload);
