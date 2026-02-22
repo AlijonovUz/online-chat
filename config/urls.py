@@ -11,4 +11,7 @@ urlpatterns = [
     path("accounts/terms/", TermsPageView.as_view(), name="terms"),
     path("accounts/", include('allauth.urls')),
     path("", include("core.urls")),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
