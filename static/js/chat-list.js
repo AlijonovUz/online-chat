@@ -131,21 +131,41 @@ const profileEditCancel = document.getElementById("profileEditCancel");
             }
 
             cropper = new Cropper(cropImage, {
-                viewMode: 2,
-                dragMode: "move",
+                viewMode: 1,
                 aspectRatio: 1,
-                autoCropArea: 1,
-                background: false,
-                responsive: true,
+                autoCropArea: 0.85,
+
+                dragMode: "move",
                 movable: true,
                 zoomable: true,
-                cropBoxMovable: false,
-                cropBoxResizable: false,
+
+                cropBoxMovable: true,
+                cropBoxResizable: true,
+
                 toggleDragModeOnDblclick: false,
+
+                guides: true,
+                center: true,
+                highlight: false,
+                background: false,
+                responsive: true,
+
                 ready() {
-                    cropper.setDragMode("move");
-                    requestAnimationFrame(() => setEnabled(true));
-                },
+                    requestAnimationFrame(() => {
+                        setEnabled(true);
+
+                        const container = cropModal.querySelector(".cropper-container");
+                        if (!container) return;
+
+                        const onDown = (e) => {
+                            const inCropBox = !!e.target.closest(".cropper-crop-box");
+                            cropper.setDragMode(inCropBox ? "crop" : "move");
+                        };
+
+                        container.addEventListener("pointerdown", onDown, true);
+                        container.addEventListener("mousedown", onDown, true);
+                    });
+                }
             });
         };
 

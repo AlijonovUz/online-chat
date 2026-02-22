@@ -29,6 +29,6 @@ class UserAdmin(BaseUserAdmin):
 
     fieldsets = BaseUserAdmin.fieldsets + (
         ("Qo‘shimcha ma'lumotlar", {
-            "fields": ("is_verified",),
+            "fields": ("image", "is_verified",),
         }),
     )
