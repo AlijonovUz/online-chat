@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "core.apps.CoreConfig",
     "django_cleanup.apps.CleanupConfig",
     "channels",
+    "daphne",
 
     "allauth",
     "allauth.account",
