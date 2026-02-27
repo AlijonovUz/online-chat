@@ -16,13 +16,10 @@ from django.contrib import messages
 
 from .models import Message
 from .mixins import LoginNoRequiredMixin
+from .utils import display_name
 from .forms import UserForm
 
 User = get_user_model()
-
-
-def display_name(u):
-    return (u.get_full_name() or "").strip() or u.username
 
 
 class ChatListView(LoginRequiredMixin, ListView):

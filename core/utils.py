@@ -14,3 +14,6 @@ def decrypt_text(token: str) -> str:
 
 def user_image_path(instance, filename):
     return f"images/{instance.pk}/{filename}"
+
+def display_name(user):
+    return (user.get_full_name() or "").strip() or user.username

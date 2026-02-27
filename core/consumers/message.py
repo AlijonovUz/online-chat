@@ -5,7 +5,7 @@ from django.core.cache import cache
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
 
-from core.utils import encrypt_text, decrypt_text
+from core.utils import encrypt_text, decrypt_text, display_name
 from core.models import Message, User
 
 
@@ -105,7 +105,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
                 self.group_name,
                 {
                     "type": "typing_event",
-                    "user": self.display_name(self.me),
+                    "user": display_name(self.me),
                     "user_id": self.me.id,
                 }
             )
@@ -189,7 +189,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
                 "type": "chat_message",
                 "id": msg_obj["id"],
                 "message": msg_obj['message'],
-                "user": self.display_name(self.me),
+                "user": display_name(self.me),
                 "user_id": self.me.id,
                 "is_read": msg_obj['is_read'],
                 "is_edited": msg_obj["is_edited"],
@@ -274,7 +274,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
         return {
             "id": message.id,
             "message": self.safe_decrypt(message.text),
-            "user": self.display_name(message.sender),
+            "user": display_name(message.sender),
             "is_read": message.is_read,
             "is_edited": message.is_edited,
             "created_at": timezone.localtime(message.created_at).isoformat(),
@@ -282,7 +282,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
                 {
                     "id": reply_obj.id,
                     "text": self.safe_decrypt(reply_obj.text),
-                    "user": self.display_name(reply_obj.sender),
+                    "user": display_name(reply_obj.sender),
                     "user_id": reply_obj.sender_id,
                 } if reply_obj else None
             )
@@ -301,7 +301,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
             {
                 "id": m.id,
                 "message": self.safe_decrypt(m.text),
-                "user": self.display_name(m.sender),
+                "user": display_name(m.sender),
                 "user_id": m.sender.id,
                 "is_read": m.is_read,
                 "is_edited": m.is_edited,
@@ -310,7 +310,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
                     {
                         "id": m.reply_to_id,
                         "text": self.safe_decrypt(m.reply_to.text),
-                        "user": self.display_name(m.reply_to.sender),
+                        "user": display_name(m.reply_to.sender),
                         "user_id": m.reply_to.sender_id,
                     } if m.reply_to_id else None
                 ),
@@ -336,7 +336,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
             {
                 "id": m.id,
                 "message": self.safe_decrypt(m.text),
-                "user": self.display_name(m.sender),
+                "user": display_name(m.sender),
                 "user_id": m.sender.id,
                 "is_read": m.is_read,
                 "is_edited": m.is_edited,
@@ -345,7 +345,7 @@ class MessageConsumer(AsyncWebsocketConsumer):
                     {
                         "id": m.reply_to_id,
                         "text": self.safe_decrypt(m.reply_to.text),
-                        "user": self.display_name(m.reply_to.sender),
+                        "user": display_name(m.reply_to.sender),
                         "user_id": m.reply_to.sender_id,
                     } if m.reply_to_id else None
                 ),
@@ -426,9 +426,6 @@ class MessageConsumer(AsyncWebsocketConsumer):
             return decrypt_text(value)
         except Exception:
             return value
-
-    def display_name(self, user):
-        return (user.get_full_name() or "").strip() or user.username
 
     def online_key(self, user_id):
         return f"online:{user_id}"
