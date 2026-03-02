@@ -492,101 +492,133 @@ clearBtn?.addEventListener("click", () => {
 });
 
 (() => {
-  const list = document.getElementById("list");
-  if (!list) return;
+    const list = document.getElementById("list");
+    if (!list) return;
 
-  function wsUrl(path) {
-    const proto = window.location.protocol === "https:" ? "wss" : "ws";
-    return `${proto}://${window.location.host}${path}`;
-  }
-
-  function getRow(userId) {
-    return list.querySelector(`.user-row[data-user-id="${userId}"]`);
-  }
-
-  function setUnread(row, unread) {
-    if (!row) return;
-    const badge = row.querySelector(".unread-badge");
-    if (!badge) return;
-
-    const n = Number(unread || 0);
-    row.dataset.unread = String(n);
-
-    if (n <= 0) {
-      badge.textContent = "";
-      badge.classList.add("hidden");
-      row.classList.remove("ring-1", "ring-slate-900/5");
-      return;
+    function wsUrl(path) {
+        const proto = window.location.protocol === "https:" ? "wss" : "ws";
+        return `${proto}://${window.location.host}${path}`;
     }
 
-    badge.textContent = String(n);
-    badge.classList.remove("hidden");
-    row.classList.add("ring-1", "ring-slate-900/5");
-    list.insertBefore(row, list.firstElementChild);
-  }
+    function getRow(userId) {
+        return list.querySelector(`.user-row[data-user-id="${userId}"]`);
+    }
 
-  function setOnline(row, online) {
-    if (!row) return;
-    const badge = row.querySelector(".online-badge");
-    if (!badge) return;
+    function sortList() {
+        const rows = Array.from(list.querySelectorAll(".user-row"));
 
-    row.dataset.online = online ? "1" : "0";
-    badge.classList.toggle("hidden", !online);
-  }
+        rows.sort((a, b) => {
+            const onlineA = a.dataset.online === "1" ? 1 : 0;
+            const onlineB = b.dataset.online === "1" ? 1 : 0;
 
-  let socket;
-  let reconnectTimer;
-  let pingTimer;
+            const unreadA = Number(a.dataset.unread || 0);
+            const unreadB = Number(b.dataset.unread || 0);
 
-  function startPing() {
-    clearInterval(pingTimer);
-    pingTimer = setInterval(() => {
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "ping" }));
-      }
-    }, 25000);
-  }
+            if (unreadB !== unreadA) return unreadB - unreadA;
+            if (onlineB !== onlineA) return onlineB - onlineA;
+            return 0;
+        });
 
-  function stopPing() {
-    clearInterval(pingTimer);
-  }
+        rows.forEach(row => list.appendChild(row));
+    }
 
-  window.addEventListener("beforeunload", () => {
-    try { socket?.close(); } catch {}
-  });
+    function setUnread(row, unread) {
+        if (!row) return;
+        const badge = row.querySelector(".unread-badge");
+        if (!badge) return;
 
-  function connect() {
-    socket = new WebSocket(wsUrl("/ws/inbox/"));
+        const n = Number(unread || 0);
+        row.dataset.unread = String(n);
 
-    socket.onopen = startPing;
+        if (n <= 0) {
+            badge.textContent = "";
+            badge.classList.add("hidden");
+            row.classList.remove("ring-1", "ring-slate-900/5");
+            return;
+        }
 
-    socket.onmessage = (e) => {
-      let data;
-      try { data = JSON.parse(e.data); } catch { return; }
+        badge.textContent = String(n);
+        badge.classList.remove("hidden");
+        row.classList.add("ring-1", "ring-slate-900/5");
+        list.insertBefore(row, list.firstElementChild);
 
-      if (data.type === "pong") return;
+        sortList();
+    }
 
-      const p = data.payload || {};
-      const userId = p.user_id;
-      if (!userId) return;
+    function setOnline(row, online) {
+        if (!row) return;
+        const badge = row.querySelector(".online-badge");
+        if (!badge) return;
 
-      const row = getRow(userId);
-      if (!row) return;
+        row.dataset.online = online ? "1" : "0";
+        badge.classList.toggle("hidden", !online);
 
-      if (data.type === "inbox_update") return setUnread(row, p.unread);
-      if (data.type === "presence_update") return setOnline(row, !!p.online);
-    };
+        sortList();
+    }
 
-    socket.onclose = () => {
-      stopPing();
-      clearTimeout(reconnectTimer);
-      reconnectTimer = setTimeout(connect, 1200);
-    };
+    let socket;
+    let reconnectTimer;
+    let pingTimer;
 
-    socket.onerror = () => {
-      try { socket.close(); } catch {}
-    };
-  }
+    function startPing() {
+        clearInterval(pingTimer);
+        pingTimer = setInterval(() => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({type: "ping"}));
+            }
+        }, 25000);
+    }
 
-  if (document.querySelector(".user-row")) connect();
+    function stopPing() {
+        clearInterval(pingTimer);
+    }
+
+    window.addEventListener("beforeunload", () => {
+        try {
+            socket?.close();
+        } catch {
+        }
+    });
+
+    function connect() {
+        socket = new WebSocket(wsUrl("/ws/inbox/"));
+
+        socket.onopen = startPing;
+
+        socket.onmessage = (e) => {
+            let data;
+            try {
+                data = JSON.parse(e.data);
+            } catch {
+                return;
+            }
+
+            if (data.type === "pong") return;
+
+            const p = data.payload || {};
+            const userId = p.user_id;
+            if (!userId) return;
+
+            const row = getRow(userId);
+            if (!row) return;
+
+            if (data.type === "inbox_update") return setUnread(row, p.unread);
+            if (data.type === "presence_update") return setOnline(row, !!p.online);
+        };
+
+        socket.onclose = () => {
+            stopPing();
+            clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(connect, 1200);
+        };
+
+        socket.onerror = () => {
+            try {
+                socket.close();
+            } catch {
+            }
+        };
+    }
+
+    if (document.querySelector(".user-row")) connect();
 })();
