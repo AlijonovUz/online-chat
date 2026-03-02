@@ -7,6 +7,7 @@ from django.db.models import Q
 from core.models import Message
 
 ONLINE_TTL = 70
+CONN_TTL = 3600
 
 
 class InboxConsumer(AsyncWebsocketConsumer):
@@ -22,6 +23,9 @@ class InboxConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
+        count = cache.get(f"conn_count:{user.id}", 0)
+        cache.set(f"conn_count:{user.id}", count + 1, timeout=CONN_TTL)
+
         cache.set(f"online:{user.id}", True, timeout=ONLINE_TTL)
 
         partner_ids = await self._get_partner_ids(user.id)
@@ -30,7 +34,16 @@ class InboxConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, code):
         if hasattr(self, "group_name"):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
-        return
+
+        if hasattr(self, "user"):
+            count = cache.get(f"conn_count:{self.user.id}", 0)
+            new_count = max(0, count - 1)
+            cache.set(f"conn_count:{self.user.id}", new_count, timeout=CONN_TTL)
+
+            if new_count == 0:
+                cache.delete(f"online:{self.user.id}")
+                partner_ids = await self._get_partner_ids(self.user.id)
+                await self._broadcast_presence(partner_ids, online=False)
 
     async def receive(self, text_data=None, bytes_data=None):
         if not text_data:
