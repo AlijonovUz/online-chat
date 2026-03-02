@@ -1,4 +1,5 @@
 import json
+import asyncio
 from django.core.cache import cache
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
@@ -25,11 +26,11 @@ class InboxConsumer(AsyncWebsocketConsumer):
 
         count = cache.get(f"conn_count:{user.id}", 0)
         cache.set(f"conn_count:{user.id}", count + 1, timeout=CONN_TTL)
-
         cache.set(f"online:{user.id}", True, timeout=ONLINE_TTL)
 
-        partner_ids = await self._get_partner_ids(user.id)
-        await self._broadcast_presence(partner_ids, online=True)
+        if count == 0:
+            partner_ids = await self._get_partner_ids(user.id)
+            await self._broadcast_presence(partner_ids, online=True)
 
     async def disconnect(self, code):
         if hasattr(self, "group_name"):
@@ -41,9 +42,15 @@ class InboxConsumer(AsyncWebsocketConsumer):
             cache.set(f"conn_count:{self.user.id}", new_count, timeout=CONN_TTL)
 
             if new_count == 0:
-                cache.delete(f"online:{self.user.id}")
-                partner_ids = await self._get_partner_ids(self.user.id)
-                await self._broadcast_presence(partner_ids, online=False)
+                await asyncio.sleep(2)
+                fresh_count = cache.get(f"conn_count:{self.user.id}", 0)
+                if fresh_count == 0:
+                    cache.delete(f"online:{self.user.id}")
+                    try:
+                        partner_ids = await self._get_partner_ids(self.user.id)
+                        await self._broadcast_presence(partner_ids, online=False)
+                    except Exception:
+                        pass
 
     async def receive(self, text_data=None, bytes_data=None):
         if not text_data:
