@@ -1093,6 +1093,12 @@ function setRealVh() {
     const vv = window.visualViewport;
     const h = vv ? vv.height : window.innerHeight;
     document.documentElement.style.setProperty("--vh", (h * 0.01) + "px");
+
+    requestAnimationFrame(() => {
+        if (isNearBottom()) {
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+    });
 }
 
 setRealVh();

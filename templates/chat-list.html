@@ -121,6 +121,7 @@
                             class="user-row group flex items-center gap-4 px-3 py-3 rounded-2xl border border-slate-200/70 bg-white
                hover:bg-slate-50 hover:border-slate-300 transition
                {% if u.unread %} ring-1 ring-slate-900/5 {% endif %}"
+                            data-user-id="{{ u.id }}"
                             data-name="{{ u.name|lower }} {{ u.username|lower }}"
                             data-online="{% if u.online %}1{% else %}0{% endif %}"
                             data-unread="{% if u.unread %}{{ u.unread }}{% else %}0{% endif %}"
@@ -144,10 +145,6 @@
                       </span>
                                 {% endif %}
                             </div>
-
-                            {% if u.online %}
-                                <span class="absolute -bottom-1 -right-1 w-4.5 h-4.5 bg-emerald-500 border-[3px] border-white rounded-full"></span>
-                            {% endif %}
                         </div>
 
                         <div class="min-w-0 flex-1">
@@ -170,30 +167,21 @@
                                             {% endif %}
                                         </div>
 
-                                        {% if u.online %}
-                                            <span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold
-                             bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                  onlayn
-                                </span>
-                                        {% endif %}
+                                        <span class="online-badge text-[11px] font-semibold px-2 py-0.5 rounded-full
+                                        bg-emerald-50 text-emerald-700 border border-emerald-100
+                                        {% if not u.online %}hidden{% endif %}">
+                                          onlayn
+                                        </span>
                                     </div>
 
                                     <div class="mt-0.5 text-sm text-slate-500 truncate">@{{ u.username }}</div>
-
-                                    {% if u.last_message %}
-                                        <div class="mt-1 text-sm text-slate-600 truncate">
-                                            {{ u.last_message }}
-                                        </div>
-                                    {% endif %}
                                 </div>
 
                                 <div class="shrink-0 flex items-center gap-2 pt-0.5">
-                                    {% if u.unread %}
-                                        <span class="min-w-[26px] h-[26px] px-2 rounded-full bg-slate-900 text-white text-xs font-semibold
-                           inline-flex items-center justify-center">
-                            {{ u.unread }}
-                          </span>
-                                    {% endif %}
+                                    <span class="unread-badge min-w-[26px] h-[26px] px-2 rounded-full bg-slate-900 text-white text-xs font-semibold
+                                                 inline-flex items-center justify-center {% if not u.unread %}hidden{% endif %}">
+                                      {{ u.unread|default:0 }}
+                                    </span>
                                 </div>
                             </div>
                         </div>
