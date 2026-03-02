@@ -8,3 +8,5 @@ whitenoise==6.9.0
 pillow==11.1.0
 django-cleanup==9.0.0
 cryptography==46.0.5
+python-dotenv==1.2.1
+cloudinary==1.44.1
