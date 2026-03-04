@@ -1,5 +1,6 @@
 import json
-from pywebpush import WebPushException, webpush
+import firebase_admin
+from firebase_admin import credentials, messaging
 
 from django.conf import settings
 from django.http import JsonResponse
@@ -9,51 +10,70 @@ from django.views import View
 
 from .models import PushSubscription
 
+if not firebase_admin._apps:
+    cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS)
+    firebase_admin.initialize_app(cred)
+
 
 class ServiceWorkerView(TemplateView):
-    template_name = "service-worker.js"
+    template_name = "service-worker/service-worker.js"
     content_type = "application/javascript"
 
+    def render_to_response(self, context, **kwargs):
+        r = super().render_to_response(context, **kwargs)
+        r["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        r["Pragma"] = "no-cache"
+        r["Expires"] = "0"
+        return r
 
-class VapidPublicKeyView(LoginRequiredMixin, View):
-    def get(self, request):
-        return JsonResponse({"vapid_public_key": settings.VAPID_PUBLIC_KEY})
 
-
-class PushSubscribeView(LoginRequiredMixin, View):
+class FcmTokenSaveView(LoginRequiredMixin, View):
     def post(self, request):
         data = json.loads(request.body)
-        endpoint = data.get("endpoint")
-        keys = data.get("keys", {})
+        fcm_token = data.get("fcm_token")
 
-        PushSubscription.objects.update_or_create(
-            user=request.user,
-            endpoint=endpoint,
-            defaults={
-                "p256dh": keys.get("p256dh", ""),
-                "auth": keys.get("auth", ""),
-            }
-        )
+        if fcm_token:
+            sub = PushSubscription.objects.filter(user=request.user).first()
+            if sub:
+                sub.fcm_token = fcm_token
+                sub.save(update_fields=["fcm_token"])
+            else:
+                PushSubscription.objects.create(
+                    user=request.user,
+                    fcm_token=fcm_token,
+                )
         return JsonResponse({"status": "ok"})
 
 
-def send_push_to_user(user, title: str, body: str, url: str):
-    subscriptions = PushSubscription.objects.filter(user=user)
+from firebase_admin import messaging
 
-    for sub in subscriptions:
+
+def send_push_to_user(user, title: str, body: str, url: str, image: str = ""):
+    subs = PushSubscription.objects.filter(user=user).exclude(fcm_token="").exclude(fcm_token__isnull=True)
+
+    for sub in subs:
         try:
-            webpush(
-                subscription_info={
-                    "endpoint": sub.endpoint,
-                    "keys": {
-                        "p256dh": sub.p256dh,
-                        "auth": sub.auth,
-                    },
-                },
-                data=json.dumps({"title": title, "body": body, "url": url}),
-                vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
+            message = messaging.Message(
+                notification=messaging.Notification(
+                    title=title,
+                    body=body,
+                ),
+                webpush=messaging.WebpushConfig(
+                    notification=messaging.WebpushNotification(
+                        icon=image or "/static/images/favicon.png",
+                    ),
+                    fcm_options=messaging.WebpushFCMOptions(
+                        link=url
+                    ),
+                ),
+                token=sub.fcm_token,
             )
-        except WebPushException as e:
-            if "410" in str(e) or "404" in str(e):
-                sub.delete()
+
+            messaging.send(message)
+
+        except messaging.UnregisteredError:
+            sub.fcm_token = ""
+            sub.save(update_fields=["fcm_token"])
+
+        except Exception as e:
+            print(f"FCM xatolik: {e}")

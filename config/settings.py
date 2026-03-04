@@ -24,6 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 MESSAGE_ENCRYPTION_KEY = os.getenv("MESSAGE_ENCRYPTION_KEY").encode()
+FIREBASE_CREDENTIALS = os.path.join(BASE_DIR, 'serviceAccountKey.json')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -222,11 +223,3 @@ CLOUDINARY_STORAGE = {
     'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
     'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
 }
-
-# Django web-push
-# https://vapidkeys.com/
-
-
-VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
-VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-VAPID_ADMIN_EMAIL = "alijonov.me@gmail.com"

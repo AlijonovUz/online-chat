@@ -9,6 +9,6 @@ django-cloudinary-storage==0.3.0
 pillow==11.1.0
 psycopg2-binary==2.9.11
 python-dotenv==1.2.1
-pywebpush==2.3.0
 redis==7.1.1
 whitenoise==6.9.0
+firebase-admin==7.2.0

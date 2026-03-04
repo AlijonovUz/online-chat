@@ -130,7 +130,9 @@ function showInAppNotification({sender_name, sender_avatar, message_preview, cha
     const toast = document.createElement("div");
     toast.className = "notif-toast";
 
-    const avatarHTML = sender_avatar ? `<img src="${sender_avatar}" class="notif-toast__avatar" />` : `<div class="notif-toast__avatar-placeholder">${sender_name[0].toUpperCase()}</div>`;
+    const avatarHTML = sender_avatar
+        ? `<img src="${sender_avatar}" class="notif-toast__avatar" />`
+        : `<div class="notif-toast__avatar-placeholder">${sender_name[0].toUpperCase()}</div>`;
 
     toast.innerHTML = `
         ${avatarHTML}
@@ -193,7 +195,6 @@ function showInAppNotification({sender_name, sender_avatar, message_preview, cha
     });
 
     startTimer();
-    showBrowserNotification(sender_name, message_preview, chat_url);
 }
 
 async function requestNotificationPermission() {
@@ -219,46 +220,50 @@ async function registerPush() {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
     try {
-        const reg = await navigator.serviceWorker.register("/service-worker.js");
+        const reg = await navigator.serviceWorker.register("/service-worker.js?v=2.0");
         await navigator.serviceWorker.ready;
-
-        let subscription = await reg.pushManager.getSubscription();
-
-        if (!subscription) {
-            const res = await fetch("/push/vapid-public-key/");
-            const {vapid_public_key} = await res.json();
-
-            subscription = await reg.pushManager.subscribe({
-                userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid_public_key),
-            });
-        }
-
-        await fetch("/push/subscribe/", {
-            method: "POST", headers: {
-                "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken"),
-            }, body: JSON.stringify(subscription),
-        });
-
+        await registerFcmToken(reg);
     } catch (err) {
         console.error("Push registration xatolik:", err);
     }
 }
 
-async function showBrowserNotification(title, body, url) {
-    if (Notification.permission !== "granted") return;
-    if (document.hasFocus()) return;
-
+async function registerFcmToken(reg) {
     try {
-        const reg = await navigator.serviceWorker.ready;
-        await reg.showNotification(title, {
-            body: body,
-            icon: "/static/images/favicon.png",
-            badge: "/static/images/favicon.png",
-            data: { url: url },
-            vibrate: [200, 100, 200],
+        const { initializeApp, getApps } = await import("https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js");
+        const { getMessaging, getToken } = await import("https://www.gstatic.com/firebasejs/12.10.0/firebase-messaging.js");
+
+        const firebaseApp = getApps().length
+            ? getApps()[0]
+            : initializeApp({
+                apiKey: "AIzaSyBkizZ445z_Givx_HvAdkd5kWauB1aKypM",
+                authDomain: "my-chat-app-64db7.firebaseapp.com",
+                projectId: "my-chat-app-64db7",
+                storageBucket: "my-chat-app-64db7.firebasestorage.app",
+                messagingSenderId: "633166054284",
+                appId: "1:633166054284:web:07384bea29542310bbcca9",
+            });
+
+        const messaging = getMessaging(firebaseApp);
+
+        const fcmToken = await getToken(messaging, {
+            vapidKey: "BOljtoTz66CYODdi2xqeG3MgC9iuK50w5rkVa8gXg7njPtx80HgGXonu47HzhqJ_y4cJZBr3UC6nyD75MK7tEDE",
+            serviceWorkerRegistration: reg,
         });
+
+        if (!fcmToken) return;
+
+        await fetch("/push/fcm-token/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken"),
+            },
+            body: JSON.stringify({ fcm_token: fcmToken }),
+        });
+
     } catch (err) {
-        console.error("SW notification xatolik:", err);
+        console.error("FCM token xatolik:", err);
     }
 }
 
@@ -267,7 +272,14 @@ function showNotifBlockedBanner() {
 
     const banner = document.createElement("div");
     banner.id = "__notif-blocked-banner";
-    banner.className = ["fixed bottom-5 left-1/2 -translate-x-1/2 z-[9999]", "bg-yellow-50 dark:bg-zinc-800", "border border-yellow-300 dark:border-zinc-600", "rounded-2xl shadow-xl", "flex items-center gap-3", "px-4 py-3 max-w-sm w-full",].join(" ");
+    banner.className = [
+        "fixed bottom-5 left-1/2 -translate-x-1/2 z-[9999]",
+        "bg-yellow-50 dark:bg-zinc-800",
+        "border border-yellow-300 dark:border-zinc-600",
+        "rounded-2xl shadow-xl",
+        "flex items-center gap-3",
+        "px-4 py-3 max-w-sm w-full",
+    ].join(" ");
 
     banner.innerHTML = `
         <i data-lucide="bell-off" class="w-5 h-5 text-yellow-500 flex-shrink-0"></i>
@@ -285,13 +297,6 @@ function showNotifBlockedBanner() {
     lucide?.createIcons?.();
 
     setTimeout(() => banner?.remove(), 10000);
-}
-
-function urlBase64ToUint8Array(base64String) {
-    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-    const rawData = atob(base64);
-    return new Uint8Array([...rawData].map((c) => c.charCodeAt(0)));
 }
 
 function getCookie(name) {

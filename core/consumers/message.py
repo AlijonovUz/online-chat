@@ -1,6 +1,7 @@
 import json
 
 from django.utils import timezone
+from django.shortcuts import reverse
 from django.core.cache import cache
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
@@ -233,7 +234,8 @@ class MessageConsumer(AsyncWebsocketConsumer):
                     user=self.receiver,
                     title=display_name(self.me),
                     body=message_preview,
-                    url=f"/chats/{self.me.username}/",
+                    url=self.build_absolute_uri(reverse("private-chat", kwargs={"username": self.me.username})),
+                    image=await self.get_avatar_url(self.me),
                 )
 
     async def chat_message(self, event):
@@ -286,9 +288,8 @@ class MessageConsumer(AsyncWebsocketConsumer):
         return ""
 
     @sync_to_async
-    def send_browser_push(self, user, title: str, body: str, url: str):
-
-        send_push_to_user(user=user, title=title, body=body, url=url)
+    def send_browser_push(self, user, title: str, body: str, url: str, image: str = ""):
+        send_push_to_user(user=user, title=title, body=body, url=url, image=image)
 
     @sync_to_async
     def get_user(self, user_id: int):
@@ -473,3 +474,8 @@ class MessageConsumer(AsyncWebsocketConsumer):
 
     def last_seen_key(self, user_id):
         return f"last_seen:{user_id}"
+
+    def build_absolute_uri(self, path: str) -> str:
+        host = dict(self.scope["headers"]).get(b"host", b"").decode()
+        scheme = "https"
+        return f"{scheme}://{host}{path}"

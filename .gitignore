@@ -173,3 +173,9 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Service Account Key
+serviceAccountKey.json
+
+# staticfiles
+staticfiles

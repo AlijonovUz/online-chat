@@ -5,15 +5,13 @@ User = get_user_model()
 
 
 class PushSubscription(models.Model):
-    user = models.ForeignKey(
+    user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
-        related_name="push_subscriptions"
+        related_name="push_subscription"
     )
-    endpoint = models.TextField(unique=True)
-    p256dh = models.TextField()
-    auth = models.TextField()
+    fcm_token = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user} — {self.endpoint[:40]}"
+        return self.user.username
