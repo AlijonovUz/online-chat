@@ -5,6 +5,7 @@ from django.core.cache import cache
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
 
+from notifications.views import send_push_to_user
 from core.utils import encrypt_text, decrypt_text, display_name
 from core.models import Message, User
 
@@ -198,7 +199,9 @@ class MessageConsumer(AsyncWebsocketConsumer):
             }
         )
 
-        if cache.get(f"active:{self.chat_key}:{self.receiver_id}"):
+        receiver_in_this_chat = cache.get(f"active:{self.chat_key}:{self.receiver_id}")
+
+        if receiver_in_this_chat:
             await self.mark_one_read(msg_obj['id'])
             await self.channel_layer.group_send(
                 self.group_name,
@@ -208,6 +211,30 @@ class MessageConsumer(AsyncWebsocketConsumer):
                     "up_to_id": msg_obj['id']
                 }
             )
+        else:
+            message_preview = text[:60] + ("..." if len(text) > 60 else "")
+
+            await self.channel_layer.group_send(
+                f"notifications_{self.receiver_id}",
+                {
+                    "type": "new_message_notification",
+                    "sender_id": self.me.id,
+                    "sender_name": display_name(self.me),
+                    "sender_username": self.me.username,
+                    "sender_avatar": await self.get_avatar_url(self.me),
+                    "message_preview": message_preview,
+                    "chat_url": f"/chats/{self.me.username}/",
+                }
+            )
+
+            receiver_online = cache.get(self.online_key(self.receiver_id))
+            if not receiver_online:
+                await self.send_browser_push(
+                    user=self.receiver,
+                    title=display_name(self.me),
+                    body=message_preview,
+                    url=f"/chats/{self.me.username}/",
+                )
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps(event))
@@ -248,6 +275,20 @@ class MessageConsumer(AsyncWebsocketConsumer):
             "status": event['status'],
             "user_id": event['user_id'],
         }))
+
+    @sync_to_async
+    def get_avatar_url(self, user):
+        try:
+            if hasattr(user, 'image') and user.image:
+                return user.image.url
+        except Exception:
+            pass
+        return ""
+
+    @sync_to_async
+    def send_browser_push(self, user, title: str, body: str, url: str):
+
+        send_push_to_user(user=user, title=title, body=body, url=url)
 
     @sync_to_async
     def get_user(self, user_id: int):

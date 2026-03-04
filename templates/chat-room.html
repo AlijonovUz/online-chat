@@ -204,7 +204,13 @@
 {% endblock %}
 
 {% block scripts %}
-<script> window.CHAT = { meId: {{ me_id }}, receiverId: {{ receiver_id }}, }; </script>
+<script>
+    window.CHAT = {
+        meId: {{ me_id }},
+        receiverId: {{ receiver_id }},
+        receiverUsername: "{{ receiver.username }}",
+    };
+</script>
 <script defer src="{% static 'js/chat-room.js' %}"></script>
 <script defer src="{% static 'js/presence.js' %}"></script>
 {% endblock %}

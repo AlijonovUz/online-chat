@@ -10,7 +10,7 @@
 
     <title>
         {% block title %}
-        BirGap
+            BirGap
         {% endblock %}
     </title>
 
@@ -27,26 +27,31 @@
 {% block scripts %}
 {% endblock %}
 <script id="django-messages" type="application/json">
-[
-{% if messages %}
+    [
+    {% if messages %}
 {% for m in messages %}
-  {"text":"{{ m|escapejs }}","tags":"{{ m.tags|escapejs }}"}{% if not forloop.last %},{% endif %}
+        {"text":"{{ m|escapejs }}","tags":"{{ m.tags|escapejs }}"}{% if not forloop.last %},{% endif %}
 {% endfor %}
 {% endif %}
-]
+    ]
 </script>
 
 <script>
-  try {
-    window.__DJANGO_MESSAGES__ = JSON.parse(
-      document.getElementById("django-messages").textContent || "[]"
-    );
-  } catch (e) {
-    window.__DJANGO_MESSAGES__ = [];
-  }
+    try {
+        window.__DJANGO_MESSAGES__ = JSON.parse(
+            document.getElementById("django-messages").textContent || "[]"
+        );
+    } catch (e) {
+        window.__DJANGO_MESSAGES__ = [];
+    }
 </script>
 
 <script src="{% static 'js/toast.js' %}"></script>
+
+{% if user.is_authenticated %}
+    <script defer src="{% static 'js/notifications.js' %}"></script>
+{% endif %}
+
 <script defer src="{% static 'js/devtools-blocker.js' %}"></script>
 </body>
 </html>
