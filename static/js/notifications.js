@@ -244,19 +244,22 @@ async function registerPush() {
     }
 }
 
-function showBrowserNotification(title, body, url) {
+async function showBrowserNotification(title, body, url) {
     if (Notification.permission !== "granted") return;
     if (document.hasFocus()) return;
 
-    const notif = new Notification(title, {
-        body, icon: "/static/images/favicon.png",
-    });
-
-    notif.onclick = () => {
-        window.focus();
-        window.location.href = url;
-        notif.close();
-    };
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification(title, {
+            body: body,
+            icon: "/static/images/favicon.png",
+            badge: "/static/images/favicon.png",
+            data: { url: url },
+            vibrate: [200, 100, 200],
+        });
+    } catch (err) {
+        console.error("SW notification xatolik:", err);
+    }
 }
 
 function showNotifBlockedBanner() {
