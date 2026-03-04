@@ -1,6 +1,6 @@
-const notifSocket = new WebSocket(
-    (location.protocol === "https:" ? "wss" : "ws") + "://" + location.host + "/ws/notifications/"
-);
+lucide?.createIcons?.();
+
+const notifSocket = new WebSocket((location.protocol === "https:" ? "wss" : "ws") + "://" + location.host + "/ws/notifications/");
 
 notifSocket.onmessage = function (e) {
     const data = JSON.parse(e.data);
@@ -130,9 +130,7 @@ function showInAppNotification({sender_name, sender_avatar, message_preview, cha
     const toast = document.createElement("div");
     toast.className = "notif-toast";
 
-    const avatarHTML = sender_avatar
-        ? `<img src="${sender_avatar}" class="notif-toast__avatar" />`
-        : `<div class="notif-toast__avatar-placeholder">${sender_name[0].toUpperCase()}</div>`;
+    const avatarHTML = sender_avatar ? `<img src="${sender_avatar}" class="notif-toast__avatar" />` : `<div class="notif-toast__avatar-placeholder">${sender_name[0].toUpperCase()}</div>`;
 
     toast.innerHTML = `
         ${avatarHTML}
@@ -227,23 +225,18 @@ async function registerPush() {
         let subscription = await reg.pushManager.getSubscription();
 
         if (!subscription) {
-            // VAPID public key ni serverdan olamiz
             const res = await fetch("/push/vapid-public-key/");
             const {vapid_public_key} = await res.json();
 
             subscription = await reg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(vapid_public_key),
+                userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid_public_key),
             });
         }
 
         await fetch("/push/subscribe/", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRFToken": getCookie("csrftoken"),
-            },
-            body: JSON.stringify(subscription),
+            method: "POST", headers: {
+                "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken"),
+            }, body: JSON.stringify(subscription),
         });
 
     } catch (err) {
@@ -256,8 +249,7 @@ function showBrowserNotification(title, body, url) {
     if (document.hasFocus()) return;
 
     const notif = new Notification(title, {
-        body,
-        icon: "/static/images/favicon.png",
+        body, icon: "/static/images/favicon.png",
     });
 
     notif.onclick = () => {
@@ -272,14 +264,7 @@ function showNotifBlockedBanner() {
 
     const banner = document.createElement("div");
     banner.id = "__notif-blocked-banner";
-    banner.className = [
-        "fixed bottom-5 left-1/2 -translate-x-1/2 z-[9999]",
-        "bg-yellow-50 dark:bg-zinc-800",
-        "border border-yellow-300 dark:border-zinc-600",
-        "rounded-2xl shadow-xl",
-        "flex items-center gap-3",
-        "px-4 py-3 max-w-sm w-full",
-    ].join(" ");
+    banner.className = ["fixed bottom-5 left-1/2 -translate-x-1/2 z-[9999]", "bg-yellow-50 dark:bg-zinc-800", "border border-yellow-300 dark:border-zinc-600", "rounded-2xl shadow-xl", "flex items-center gap-3", "px-4 py-3 max-w-sm w-full",].join(" ");
 
     banner.innerHTML = `
         <i data-lucide="bell-off" class="w-5 h-5 text-yellow-500 flex-shrink-0"></i>
